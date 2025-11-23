@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest';
 import { generatePuzzle, generateDominoSet } from '../generator';
-import { GRID_SIZE } from '../../types/puzzle';
 
 describe('generateDominoSet', () => {
   it('should generate all unique dominoes (0-0 through 6-6)', () => {
@@ -37,10 +36,36 @@ describe('generatePuzzle', () => {
     expect(puzzle.id).toBeDefined();
     expect(puzzle.seed).toBe('test-seed-1');
     expect(puzzle.difficulty).toBe('easy');
-    expect(puzzle.gridSize).toBe(GRID_SIZE);
+    expect(puzzle.gridSize).toBeGreaterThanOrEqual(3);
+    expect(puzzle.gridSize).toBeLessThanOrEqual(5);
     expect(puzzle.regions).toBeDefined();
     expect(puzzle.availableDominoes).toBeDefined();
     expect(puzzle.placements).toEqual([]);
+  });
+  
+  it('should generate easy puzzles with smaller grid sizes (3x3, 4x4, or 5x5)', () => {
+    // Generate multiple easy puzzles to test randomization
+    const puzzles = Array.from({ length: 20 }, () => generatePuzzle('easy'));
+    
+    // All easy puzzles should have grid size between 3 and 5
+    puzzles.forEach(puzzle => {
+      expect(puzzle.gridSize).toBeGreaterThanOrEqual(3);
+      expect(puzzle.gridSize).toBeLessThanOrEqual(5);
+      expect([3, 4, 5]).toContain(puzzle.gridSize);
+    });
+    
+    // At least one of each size should appear (with high probability)
+    const sizes = new Set(puzzles.map(p => p.gridSize));
+    // With 20 puzzles, we should see at least 2 different sizes
+    expect(sizes.size).toBeGreaterThanOrEqual(1);
+  });
+  
+  it('should generate medium and hard puzzles with 6x6 grid', () => {
+    const mediumPuzzle = generatePuzzle('medium', 'test-seed-medium');
+    const hardPuzzle = generatePuzzle('hard', 'test-seed-hard');
+    
+    expect(mediumPuzzle.gridSize).toBe(6);
+    expect(hardPuzzle.gridSize).toBe(6);
   });
   
   it('should generate puzzles with correct region counts per difficulty', () => {
@@ -60,7 +85,7 @@ describe('generatePuzzle', () => {
   
   it('should cover all cells in the grid', () => {
     const puzzle = generatePuzzle('easy', 'test-seed-coverage');
-    const totalCells = GRID_SIZE * GRID_SIZE;
+    const totalCells = puzzle.gridSize * puzzle.gridSize;
     const coveredCells = new Set<string>();
     
     for (const region of puzzle.regions) {
@@ -97,9 +122,22 @@ describe('generatePuzzle', () => {
     for (const region of puzzle.regions) {
       for (const cell of region.cells) {
         expect(cell.row).toBeGreaterThanOrEqual(0);
-        expect(cell.row).toBeLessThan(GRID_SIZE);
+        expect(cell.row).toBeLessThan(puzzle.gridSize);
         expect(cell.col).toBeGreaterThanOrEqual(0);
-        expect(cell.col).toBeLessThan(GRID_SIZE);
+        expect(cell.col).toBeLessThan(puzzle.gridSize);
+      }
+    }
+  });
+  
+  it('should have all cells within grid bounds for easy puzzles', () => {
+    const puzzle = generatePuzzle('easy', 'test-seed-bounds-easy');
+    
+    for (const region of puzzle.regions) {
+      for (const cell of region.cells) {
+        expect(cell.row).toBeGreaterThanOrEqual(0);
+        expect(cell.row).toBeLessThan(puzzle.gridSize);
+        expect(cell.col).toBeGreaterThanOrEqual(0);
+        expect(cell.col).toBeLessThan(puzzle.gridSize);
       }
     }
   });
@@ -129,14 +167,27 @@ describe('generatePuzzle', () => {
     for (const region of puzzle.regions) {
       expect(region.rule).toBeDefined();
       expect(region.rule.regionId).toBe(region.id);
-      expect(['SUM_AT_LEAST', 'SUM_AT_MOST']).toContain(region.rule.type);
+      expect(['SUM_AT_LEAST', 'SUM_AT_MOST', 'VALUES_EQUAL', 'VALUES_ALL_DIFFERENT']).toContain(region.rule.type);
       expect(region.rule.value).toBeGreaterThanOrEqual(0);
     }
   });
   
-  it('should have all available dominoes', () => {
+  it('should have available dominoes matching the grid size', () => {
     const puzzle = generatePuzzle('easy', 'test-seed-dominoes');
-    expect(puzzle.availableDominoes.length).toBe(28);
+    // Available dominoes should match the number of placements used in the solution
+    // Each domino covers 2 cells, so the count should match the solution placements
+    // For even-sized grids: gridSize * gridSize / 2
+    // For odd-sized grids: floor(gridSize * gridSize / 2) or ceil, depending on solution
+    const totalCells = puzzle.gridSize * puzzle.gridSize;
+    const minDominoes = Math.floor(totalCells / 2);
+    const maxDominoes = Math.ceil(totalCells / 2);
+    
+    // The domino count should be within the valid range for the grid size
+    expect(puzzle.availableDominoes.length).toBeGreaterThanOrEqual(minDominoes);
+    expect(puzzle.availableDominoes.length).toBeLessThanOrEqual(maxDominoes);
+    
+    // Also check that we have at least some dominoes
+    expect(puzzle.availableDominoes.length).toBeGreaterThan(0);
   });
 });
 

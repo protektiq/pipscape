@@ -1,7 +1,17 @@
 import { create } from 'zustand';
 import type { Puzzle, Cell, ValidationResult } from '../types/puzzle';
 import { generatePuzzle } from '../engine/generator';
-import { validatePlacement, validatePuzzle as validatePuzzleEngine } from '../engine/validator';
+import { validatePuzzle as validatePuzzleEngine } from '../engine/validator';
+import { 
+  handleFirstCellClick, 
+  handleSecondCellClick, 
+  addPlacementToPuzzle, 
+  removePlacementFromPuzzle,
+  isDominoPlaced,
+  rotatePlacementInPuzzle,
+  movePlacementInPuzzle,
+} from '../engine/placementEngine';
+import { getPlacementCells, getPlacementForCell } from '../engine/placementUtils';
 
 type PlacementMode = 'select-domino' | 'place-first' | 'place-second';
 
@@ -18,6 +28,8 @@ interface PuzzleState {
   selectDomino: (dominoId: string) => void;
   placeDomino: (cell: Cell) => void;
   removePlacement: (row: number, col: number) => void;
+  rotatePlacement: (row: number, col: number) => void;
+  movePlacement: (fromRow: number, fromCol: number, toRow: number, toCol: number) => void;
   clearSelection: () => void;
   validateSolution: () => void;
   setPuzzle: (puzzle: Puzzle) => void;
@@ -48,11 +60,9 @@ export const usePuzzleStore = create<PuzzleState>((set, get) => ({
     const state = get();
     if (state.currentPuzzle) {
       // Check if domino is already placed
-      const isPlaced = state.currentPuzzle.placements.some(
-        p => p.dominoId === dominoId
-      );
+      const placed = isDominoPlaced(dominoId, state.currentPuzzle);
 
-      if (!isPlaced) {
+      if (!placed) {
         set({
           selectedDominoId: dominoId,
           placementMode: 'place-first',
@@ -80,53 +90,23 @@ export const usePuzzleStore = create<PuzzleState>((set, get) => ({
 
     if (state.placementMode === 'place-first') {
       // First cell clicked
+      const result = handleFirstCellClick(cell);
       set({
-        firstCell: cell,
-        placementMode: 'place-second',
+        firstCell: result.firstCell,
+        placementMode: result.mode,
       });
     } else if (state.placementMode === 'place-second' && state.firstCell) {
-      // Second cell clicked - determine orientation and place
-      const rowDiff = cell.row - state.firstCell.row;
-      const colDiff = cell.col - state.firstCell.col;
+      // Second cell clicked
+      const result = handleSecondCellClick(
+        state.firstCell,
+        cell,
+        state.selectedDominoId,
+        state.currentPuzzle
+      );
 
-      // Check if cells are adjacent
-      const isAdjacent = 
-        (Math.abs(rowDiff) === 1 && colDiff === 0) ||
-        (rowDiff === 0 && Math.abs(colDiff) === 1);
-
-      if (!isAdjacent) {
-        // Not adjacent, reset to first cell
-        set({
-          firstCell: cell,
-          placementMode: 'place-second',
-        });
-        return;
-      }
-
-      // Determine orientation
-      const orientation: 'horizontal' | 'vertical' = colDiff !== 0 ? 'horizontal' : 'vertical';
-      
-      // Ensure first cell is the leftmost/topmost
-      const startRow = orientation === 'horizontal' ? state.firstCell.row : Math.min(state.firstCell.row, cell.row);
-      const startCol = orientation === 'horizontal' ? Math.min(state.firstCell.col, cell.col) : state.firstCell.col;
-
-      const placement = {
-        dominoId: state.selectedDominoId,
-        row: startRow,
-        col: startCol,
-        orientation,
-        fixed: false,
-      };
-
-      // Validate placement
-      const validation = validatePlacement(state.currentPuzzle, placement);
-      
-      if (validation.isValid) {
+      if (result.success && result.placement) {
         // Add placement
-        const updatedPuzzle = {
-          ...state.currentPuzzle,
-          placements: [...state.currentPuzzle.placements, placement],
-        };
+        const updatedPuzzle = addPlacementToPuzzle(state.currentPuzzle, result.placement);
 
         set({
           currentPuzzle: updatedPuzzle,
@@ -141,7 +121,7 @@ export const usePuzzleStore = create<PuzzleState>((set, get) => ({
           selectedDominoId: null,
           placementMode: 'select-domino',
           firstCell: null,
-          invalidPlacementMessage: validation.error || 'Invalid placement. Please try again.',
+          invalidPlacementMessage: result.error || 'Invalid placement. Please try again.',
         });
         
         // Clear message after 3 seconds
@@ -161,24 +141,57 @@ export const usePuzzleStore = create<PuzzleState>((set, get) => ({
       return;
     }
 
-    // Find placement covering this cell
-    const placementIndex = state.currentPuzzle.placements.findIndex(p => {
-      const cells = getPlacementCells(p);
-      return cells.some(c => c.row === row && c.col === col);
+    const updatedPuzzle = removePlacementFromPuzzle(row, col, state.currentPuzzle);
+
+    set({
+      currentPuzzle: updatedPuzzle,
+      validationResult: null,
     });
+  },
 
-    if (placementIndex !== -1) {
-      const updatedPlacements = [...state.currentPuzzle.placements];
-      updatedPlacements.splice(placementIndex, 1);
+  rotatePlacement: (row, col) => {
+    const state = get();
+    if (!state.currentPuzzle) {
+      return;
+    }
 
+    const placement = getPlacementForCell(row, col, state.currentPuzzle.placements);
+    if (!placement) {
+      return;
+    }
+
+    const updatedPuzzle = rotatePlacementInPuzzle(state.currentPuzzle, placement);
+
+    set({
+      currentPuzzle: updatedPuzzle,
+      validationResult: null,
+    });
+  },
+
+  movePlacement: (fromRow, fromCol, toRow, toCol) => {
+    const state = get();
+    if (!state.currentPuzzle) {
+      return;
+    }
+
+    const fromPlacement = getPlacementForCell(fromRow, fromCol, state.currentPuzzle.placements);
+    if (!fromPlacement) {
+      return;
+    }
+
+    const result = movePlacementInPuzzle(
+      state.currentPuzzle,
+      fromPlacement,
+      { row: toRow, col: toCol }
+    );
+
+    if (result.success && result.puzzle) {
       set({
-        currentPuzzle: {
-          ...state.currentPuzzle,
-          placements: updatedPlacements,
-        },
+        currentPuzzle: result.puzzle,
         validationResult: null,
       });
     }
+    // If move failed, silently ignore (could show error message in future)
   },
 
   clearSelection: () => {
@@ -215,19 +228,3 @@ export const usePuzzleStore = create<PuzzleState>((set, get) => ({
     });
   },
 }));
-
-// Helper function to get placement cells (duplicated from validator for store use)
-const getPlacementCells = (placement: { row: number; col: number; orientation: 'horizontal' | 'vertical' }): Cell[] => {
-  const cells: Cell[] = [
-    { row: placement.row, col: placement.col },
-  ];
-
-  if (placement.orientation === 'horizontal') {
-    cells.push({ row: placement.row, col: placement.col + 1 });
-  } else {
-    cells.push({ row: placement.row + 1, col: placement.col });
-  }
-
-  return cells;
-};
-

@@ -2,7 +2,6 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { validatePlacement, validatePuzzle } from '../validator';
 import { generatePuzzle } from '../generator';
 import type { Puzzle, Placement } from '../../types/puzzle';
-import { GRID_SIZE } from '../../types/puzzle';
 
 describe('validatePlacement', () => {
   let puzzle: Puzzle;
@@ -28,7 +27,7 @@ describe('validatePlacement', () => {
     const placement: Placement = {
       dominoId: puzzle.availableDominoes[0].id,
       row: 0,
-      col: GRID_SIZE - 1,
+      col: puzzle.gridSize - 1,
       orientation: 'horizontal',
     };
     
@@ -40,7 +39,7 @@ describe('validatePlacement', () => {
   it('should reject placement out of bounds (bottom edge)', () => {
     const placement: Placement = {
       dominoId: puzzle.availableDominoes[0].id,
-      row: GRID_SIZE - 1,
+      row: puzzle.gridSize - 1,
       col: 0,
       orientation: 'vertical',
     };
@@ -131,24 +130,31 @@ describe('validatePlacement', () => {
   });
   
   it('should allow adjacent non-overlapping placements', () => {
+    // Use a medium puzzle to ensure grid is large enough (6x6)
+    const testPuzzle = generatePuzzle('medium', 'test-validator-adjacent-seed');
+    
+    // Ensure grid is large enough for the placements (need at least 4 columns)
+    expect(testPuzzle.gridSize).toBeGreaterThanOrEqual(4);
+    
     const placement1: Placement = {
-      dominoId: puzzle.availableDominoes[0].id,
+      dominoId: testPuzzle.availableDominoes[0].id,
       row: 0,
       col: 0,
       orientation: 'horizontal',
     };
     
     const placement2: Placement = {
-      dominoId: puzzle.availableDominoes[1].id,
+      dominoId: testPuzzle.availableDominoes[1].id,
       row: 0,
       col: 2,
       orientation: 'horizontal',
     };
     
-    puzzle.placements.push(placement1);
+    testPuzzle.placements.push(placement1);
     
-    const result = validatePlacement(puzzle, placement2);
+    const result = validatePlacement(testPuzzle, placement2);
     expect(result.isValid).toBe(true);
+    expect(result.error).toBeUndefined();
   });
 });
 

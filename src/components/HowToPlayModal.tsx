@@ -112,7 +112,7 @@ const HowToPlayModal = ({ isOpen, onClose }: HowToPlayModalProps) => {
                 Objective
               </h3>
               <p className="text-gray-700">
-                Place dominoes on the grid to satisfy all region rules. Each domino covers two adjacent cells, and the sum of pips in each region must satisfy its constraint.
+                Place dominoes on the grid to satisfy all region rules. Each domino covers two adjacent cells, and each region has a constraint that must be satisfied (sum constraints or value equality/difference constraints).
               </p>
             </div>
 
@@ -124,7 +124,7 @@ const HowToPlayModal = ({ isOpen, onClose }: HowToPlayModalProps) => {
                 <li>Place dominoes on the grid to satisfy all region rules.</li>
                 <li>Each domino covers two adjacent cells (horizontally or vertically).</li>
                 <li>
-                  The sum of pips in each region must satisfy its constraint (≥ or ≤).
+                  Each region has a constraint that must be satisfied: sum ≥ value, sum ≤ value, all values equal, or all values different.
                 </li>
                 <li>Use all available dominoes exactly once.</li>
               </ol>
@@ -145,7 +145,7 @@ const HowToPlayModal = ({ isOpen, onClose }: HowToPlayModalProps) => {
 
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <p className="text-sm text-blue-800">
-                <strong>Tip:</strong> Look at the region rules and constraints. Each colored region has a rule badge showing whether the sum must be greater than or equal to (≥) or less than or equal to (≤) a certain value.
+                <strong>Tip:</strong> Look at the region rules and constraints. Each colored region has a rule badge showing one of four constraint types: sum ≥ value (sum must be greater than or equal to), sum ≤ value (sum must be less than or equal to), all values equal (all domino values in the region must match), or all values different (all domino values in the region must be unique).
               </p>
             </div>
           </div>

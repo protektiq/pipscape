@@ -8,10 +8,12 @@ export type Domino = {
   right: number;  // 0-6
 };
 
-// Region rule types (Phase 0: sum-based only)
+// Region rule types
 export const RuleType = {
   SUM_AT_LEAST: 'SUM_AT_LEAST',
   SUM_AT_MOST: 'SUM_AT_MOST',
+  VALUES_EQUAL: 'VALUES_EQUAL',
+  VALUES_ALL_DIFFERENT: 'VALUES_ALL_DIFFERENT',
 } as const;
 
 export type RuleType = typeof RuleType[keyof typeof RuleType];

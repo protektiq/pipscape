@@ -69,6 +69,19 @@ const Home = () => {
               Click a difficulty to generate and play a new puzzle
             </p>
           </div>
+
+          <p className="text-sm text-gray-600 mt-6">
+            Puzzle by{' '}
+            <a
+              href="https://www.linkedin.com/in/lvcarlosja/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 hover:text-blue-800 underline focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded"
+              aria-label="Visit Carlos Almeyda's LinkedIn profile"
+            >
+              Carlos Almeyda
+            </a>
+          </p>
         </div>
       </div>
       <HowToPlayModal isOpen={isModalOpen} onClose={handleCloseModal} />
