@@ -236,16 +236,66 @@ const assignRule = (
   };
 };
 
+// Validate puzzle structure
+const validatePuzzleStructure = (regions: Region[]): boolean => {
+  const totalCells = GRID_SIZE * GRID_SIZE;
+  const coveredCells = new Set<string>();
+  
+  // Check all regions
+  for (const region of regions) {
+    // Check each cell in the region
+    for (const cell of region.cells) {
+      // Check bounds
+      if (cell.row < 0 || cell.row >= GRID_SIZE || 
+          cell.col < 0 || cell.col >= GRID_SIZE) {
+        return false;
+      }
+      
+      const cellKey = `${cell.row}-${cell.col}`;
+      
+      // Check for overlapping regions
+      if (coveredCells.has(cellKey)) {
+        return false;
+      }
+      
+      coveredCells.add(cellKey);
+    }
+    
+    // Validate rule value is reasonable (non-negative)
+    if (region.rule.value < 0) {
+      return false;
+    }
+  }
+  
+  // Ensure all cells are covered
+  if (coveredCells.size !== totalCells) {
+    return false;
+  }
+  
+  return true;
+};
+
 // Main puzzle generation function
 export const generatePuzzle = (
   difficulty: 'easy' | 'medium' | 'hard',
-  seed?: string
+  seed?: string,
+  retryCount: number = 0
 ): Puzzle => {
   const puzzleSeed = seed || uuidv4();
   const random = new SeededRandom(puzzleSeed);
   const puzzleId = uuidv4();
 
   const regions = createRegions(difficulty, random);
+  
+  // Validate structure (with retry limit to prevent infinite recursion)
+  if (!validatePuzzleStructure(regions) && retryCount < 10) {
+    // If validation fails, regenerate with a new seed
+    return generatePuzzle(difficulty, uuidv4(), retryCount + 1);
+  }
+  
+  // If validation still fails after retries, return anyway (shouldn't happen)
+  // The generator logic should ensure valid structure
+  
   const availableDominoes = generateDominoSet();
 
   return {

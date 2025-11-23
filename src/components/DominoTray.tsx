@@ -117,17 +117,17 @@ const DominoTray = () => {
   }, {} as { [key: number]: typeof currentPuzzle.availableDominoes });
 
   return (
-    <div className="bg-white rounded-lg shadow-lg p-4">
-      <h2 className="text-xl font-semibold text-gray-900 mb-4">
+    <div className="bg-white rounded-lg shadow-lg p-3 sm:p-4">
+      <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-3 sm:mb-4">
         Available Dominoes
       </h2>
       
-      <div className="space-y-4 max-h-[calc(100vh-200px)] overflow-y-auto">
+      <div className="space-y-3 sm:space-y-4 max-h-[calc(100vh-300px)] sm:max-h-[calc(100vh-200px)] overflow-y-auto overscroll-contain">
         {Object.keys(groupedDominoes)
           .sort((a, b) => Number(a) - Number(b))
           .map(sum => (
-            <div key={sum} className="mb-4">
-              <div className="text-sm font-medium text-gray-600 mb-2">
+            <div key={sum} className="mb-3 sm:mb-4">
+              <div className="text-xs sm:text-sm font-medium text-gray-600 mb-2">
                 Sum: {sum}
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
@@ -141,17 +141,20 @@ const DominoTray = () => {
                       onClick={() => handleDominoClick(domino.id)}
                       disabled={isPlaced}
                       className={`
-                        aspect-[2/1] border-2 rounded-lg p-2
+                        aspect-[2/1] border-2 rounded-lg p-1.5 sm:p-2
                         flex items-center justify-center gap-1
-                        transition-all
+                        transition-all touch-manipulation
+                        min-h-[44px]
                         ${
                           isSelected
-                            ? 'border-blue-500 bg-blue-100 ring-2 ring-blue-300'
+                            ? 'border-blue-500 bg-blue-100 ring-2 ring-blue-300 active:bg-blue-200'
                             : isPlaced
                             ? 'border-gray-300 bg-gray-100 opacity-50 cursor-not-allowed'
-                            : 'border-gray-300 bg-white hover:border-gray-400 hover:shadow-md cursor-pointer'
+                            : 'border-gray-300 bg-white hover:border-gray-400 hover:shadow-md active:bg-gray-50 cursor-pointer'
                         }
                       `}
+                      aria-label={`Domino ${domino.left}-${domino.right}${isPlaced ? ' (placed)' : ''}${isSelected ? ' (selected)' : ''}`}
+                      aria-pressed={isSelected}
                     >
                       <div className="flex-1 h-full flex items-center justify-center border-r border-gray-300">
                         {renderPips(domino.left, 'small')}
@@ -168,8 +171,8 @@ const DominoTray = () => {
       </div>
 
       {selectedDominoId && (
-        <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-          <p className="text-sm text-blue-800">
+        <div className="mt-3 sm:mt-4 p-2 sm:p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <p className="text-xs sm:text-sm text-blue-800">
             Selected: Click two adjacent cells to place
           </p>
         </div>

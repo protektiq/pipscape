@@ -7,3 +7,56 @@
     @apply min-h-screen bg-gray-50 text-gray-900;
   }
 }
+
+@layer utilities {
+  .touch-manipulation {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+/* Print styles */
+@media print {
+  @page {
+    margin: 1cm;
+    size: letter;
+  }
+
+  body {
+    background: white !important;
+  }
+
+  /* Hide non-essential elements when printing */
+  .print\:hidden {
+    display: none !important;
+  }
+
+  /* Page break controls */
+  .print\:page-break-after-always {
+    page-break-after: always;
+  }
+
+  .print\:page-break-before-always {
+    page-break-before: always;
+  }
+
+  /* Optimize colors for printing */
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Ensure text is readable */
+  h1, h2, h3, h4, h5, h6 {
+    color: #000 !important;
+  }
+
+  /* Optimize borders for print */
+  .print\:border-gray-600 {
+    border-color: #4b5563 !important;
+  }
+
+  .print\:border-gray-400 {
+    border-color: #9ca3af !important;
+  }
+}

@@ -11,6 +11,7 @@ interface PuzzleState {
   placementMode: PlacementMode;
   firstCell: Cell | null;
   validationResult: ValidationResult | null;
+  invalidPlacementMessage: string | null;
 
   // Actions
   generatePuzzle: (difficulty: 'easy' | 'medium' | 'hard', seed?: string) => void;
@@ -20,6 +21,7 @@ interface PuzzleState {
   clearSelection: () => void;
   validateSolution: () => void;
   setPuzzle: (puzzle: Puzzle) => void;
+  clearInvalidPlacementMessage: () => void;
 }
 
 export const usePuzzleStore = create<PuzzleState>((set, get) => ({
@@ -28,6 +30,7 @@ export const usePuzzleStore = create<PuzzleState>((set, get) => ({
   placementMode: 'select-domino',
   firstCell: null,
   validationResult: null,
+  invalidPlacementMessage: null,
 
   generatePuzzle: (difficulty, seed) => {
     const puzzle = generatePuzzle(difficulty, seed);
@@ -37,6 +40,7 @@ export const usePuzzleStore = create<PuzzleState>((set, get) => ({
       placementMode: 'select-domino',
       firstCell: null,
       validationResult: null,
+      invalidPlacementMessage: null,
     });
   },
 
@@ -129,14 +133,24 @@ export const usePuzzleStore = create<PuzzleState>((set, get) => ({
           selectedDominoId: null,
           placementMode: 'select-domino',
           firstCell: null,
+          invalidPlacementMessage: null,
         });
       } else {
-        // Invalid placement, reset
+        // Invalid placement, show message and reset
         set({
           selectedDominoId: null,
           placementMode: 'select-domino',
           firstCell: null,
+          invalidPlacementMessage: validation.error || 'Invalid placement. Please try again.',
         });
+        
+        // Clear message after 3 seconds
+        setTimeout(() => {
+          const currentState = get();
+          if (currentState.invalidPlacementMessage) {
+            set({ invalidPlacementMessage: null });
+          }
+        }, 3000);
       }
     }
   },
@@ -172,7 +186,12 @@ export const usePuzzleStore = create<PuzzleState>((set, get) => ({
       selectedDominoId: null,
       placementMode: 'select-domino',
       firstCell: null,
+      invalidPlacementMessage: null,
     });
+  },
+
+  clearInvalidPlacementMessage: () => {
+    set({ invalidPlacementMessage: null });
   },
 
   validateSolution: () => {
@@ -192,6 +211,7 @@ export const usePuzzleStore = create<PuzzleState>((set, get) => ({
       placementMode: 'select-domino',
       firstCell: null,
       validationResult: null,
+      invalidPlacementMessage: null,
     });
   },
 }));

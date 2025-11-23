@@ -45,6 +45,15 @@ export const validatePlacement = (
   puzzle: Puzzle,
   placement: Placement
 ): { isValid: boolean; error?: string } => {
+  // Check if domino exists in available dominoes
+  const domino = puzzle.availableDominoes.find(d => d.id === placement.dominoId);
+  if (!domino) {
+    return {
+      isValid: false,
+      error: 'Domino not found in available dominoes',
+    };
+  }
+
   const cells = getPlacementCells(placement);
 
   // Check bounds

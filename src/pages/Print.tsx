@@ -10,9 +10,15 @@ const Print = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [puzzle, setPuzzle] = useState<Puzzle | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (id) {
+    if (!id) {
+      navigate('/');
+      return;
+    }
+
+    try {
       const seed = searchParams.get('seed');
       const difficultyParam = searchParams.get('difficulty');
       const difficulty = (difficultyParam === 'easy' || difficultyParam === 'medium' || difficultyParam === 'hard')
@@ -22,14 +28,24 @@ const Print = () => {
       if (seed) {
         // Regenerate puzzle from seed
         const newPuzzle = generatePuzzle(difficulty, seed);
-        setPuzzle(newPuzzle);
+        if (newPuzzle) {
+          setPuzzle(newPuzzle);
+          setError(null);
+        } else {
+          setError('Failed to generate puzzle from seed');
+        }
       } else {
         // Fallback: generate new puzzle
         const newPuzzle = generatePuzzle(difficulty);
-        setPuzzle(newPuzzle);
+        if (newPuzzle) {
+          setPuzzle(newPuzzle);
+          setError(null);
+        } else {
+          setError('Failed to generate puzzle');
+        }
       }
-    } else {
-      navigate('/');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred while loading the puzzle');
     }
   }, [id, searchParams, navigate]);
 
@@ -40,6 +56,23 @@ const Print = () => {
   const handleBack = () => {
     navigate(-1);
   };
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center max-w-md mx-auto p-6">
+          <h2 className="text-2xl font-bold text-red-600 mb-4">Error</h2>
+          <p className="text-gray-700 mb-6">{error}</p>
+          <button
+            onClick={handleBack}
+            className="px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-semibold"
+          >
+            Go Back
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (!puzzle) {
     return (
@@ -405,28 +438,6 @@ const Print = () => {
           </ol>
         </div>
       </div>
-
-      {/* Print-specific styles */}
-      <style>{`
-        @media print {
-          @page {
-            margin: 1cm;
-            size: letter;
-          }
-          body {
-            background: white;
-          }
-          .print\\:hidden {
-            display: none;
-          }
-          .print\\:page-break-after-always {
-            page-break-after: always;
-          }
-          .print\\:page-break-before-always {
-            page-break-before: always;
-          }
-        }
-      `}</style>
     </div>
   );
 };

@@ -174,7 +174,7 @@ const PuzzleBoard = () => {
   // Render pips for a number (0-6)
   const renderPips = (count: number) => {
     if (count === 0) {
-      return <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">0</div>;
+      return <div className="w-full h-full flex items-center justify-center text-gray-400 text-[10px] sm:text-xs">0</div>;
     }
 
     // Simple pip representation
@@ -190,7 +190,7 @@ const PuzzleBoard = () => {
     const positions = pipPositions[count] || [];
 
     return (
-      <div className="grid grid-cols-3 gap-0.5 p-1 w-full h-full">
+      <div className="grid grid-cols-3 gap-0.5 p-0.5 sm:p-1 w-full h-full">
         {Array.from({ length: 9 }).map((_, i) => {
           const row = Math.floor(i / 3);
           const col = i % 3;
@@ -214,6 +214,10 @@ const PuzzleBoard = () => {
               className={`aspect-square ${
                 shouldShowPip ? 'bg-gray-900 rounded-full' : ''
               }`}
+              style={{
+                minWidth: '2px',
+                minHeight: '2px',
+              }}
             />
           );
         })}
@@ -243,15 +247,16 @@ const PuzzleBoard = () => {
 
   return (
     <div className="w-full max-w-4xl mx-auto">
-      <div className="bg-white rounded-lg shadow-md p-4 overflow-visible">
-        <div className="relative">
-          {/* Background grid layer */}
-          <div
-            className="grid gap-0 border-2 border-gray-300 bg-white"
-            style={{
-              gridTemplateColumns: `repeat(${GRID_SIZE}, minmax(0, 1fr))`,
-            }}
-          >
+      <div className="bg-white rounded-lg shadow-md p-2 sm:p-4 overflow-visible">
+        <div className="relative w-full" style={{ paddingBottom: '100%' }}>
+          <div className="absolute inset-0">
+            {/* Background grid layer */}
+            <div
+              className="grid gap-0 border-2 border-gray-300 bg-white h-full"
+              style={{
+                gridTemplateColumns: `repeat(${GRID_SIZE}, minmax(0, 1fr))`,
+              }}
+            >
             {Array.from({ length: GRID_SIZE }).map((_, row) =>
               Array.from({ length: GRID_SIZE }).map((_, col) => (
                 <div
@@ -262,15 +267,15 @@ const PuzzleBoard = () => {
             )}
           </div>
 
-          {/* Region backgrounds layer */}
-          {currentPuzzle.regions.map(region => {
-            const color = getRegionColor(region.id);
-            
-            return (
-              <div
-                key={`region-bg-${region.id}`}
-                className="absolute inset-0 pointer-events-none"
-              >
+            {/* Region backgrounds layer */}
+            {currentPuzzle.regions.map(region => {
+              const color = getRegionColor(region.id);
+              
+              return (
+                <div
+                  key={`region-bg-${region.id}`}
+                  className="absolute inset-0 pointer-events-none"
+                >
                 {region.cells.map(cell => {
                   const cellSize = `calc(100% / ${GRID_SIZE})`;
                   return (
@@ -287,20 +292,20 @@ const PuzzleBoard = () => {
                       }}
                     />
                   );
-                })}
-              </div>
-            );
-          })}
+                  })}
+                </div>
+              );
+            })}
 
-          {/* Region borders layer */}
-          {currentPuzzle.regions.map(region => {
-            const color = getRegionColor(region.id);
-            
-            return (
-              <div
-                key={`region-border-${region.id}`}
-                className="absolute inset-0 pointer-events-none"
-              >
+            {/* Region borders layer */}
+            {currentPuzzle.regions.map(region => {
+              const color = getRegionColor(region.id);
+              
+              return (
+                <div
+                  key={`region-border-${region.id}`}
+                  className="absolute inset-0 pointer-events-none"
+                >
                 {region.cells.map(cell => {
                   const edgeInfo = getRegionEdgeInfo(
                     cell.row,
@@ -335,18 +340,18 @@ const PuzzleBoard = () => {
                       }}
                     />
                   );
-                })}
-              </div>
-            );
-          })}
+                  })}
+                </div>
+              );
+            })}
 
-          {/* Interactive cells layer */}
-          <div
-            className="grid gap-0 absolute inset-0"
-            style={{
-              gridTemplateColumns: `repeat(${GRID_SIZE}, minmax(0, 1fr))`,
-            }}
-          >
+            {/* Interactive cells layer */}
+            <div
+              className="grid gap-0 absolute inset-0"
+              style={{
+                gridTemplateColumns: `repeat(${GRID_SIZE}, minmax(0, 1fr))`,
+              }}
+            >
             {Array.from({ length: GRID_SIZE }).map((_, row) =>
               Array.from({ length: GRID_SIZE }).map((_, col) => {
                 const placement = getPlacementForCell(row, col);
@@ -371,15 +376,31 @@ const PuzzleBoard = () => {
                   <div
                     key={`${row}-${col}`}
                     onClick={() => handleCellClick(row, col)}
+                    onTouchStart={(e) => {
+                      // Prevent double-tap zoom on mobile
+                      if (e.touches.length > 1) {
+                        e.preventDefault();
+                      }
+                    }}
                     className={`
                       aspect-square
                       ${isInvalid ? 'bg-red-100' : ''}
                       ${isHighlighted ? 'bg-yellow-200 ring-2 ring-yellow-400' : ''}
-                      ${isClickable && placementMode !== 'select-domino' ? 'cursor-pointer hover:bg-gray-100' : ''}
+                      ${isClickable && placementMode !== 'select-domino' ? 'cursor-pointer hover:bg-gray-100 active:bg-gray-200 touch-manipulation' : ''}
                       flex items-center justify-center
                       transition-colors
                       relative z-10
+                      min-h-[44px] min-w-[44px]
                     `}
+                    role="button"
+                    tabIndex={isClickable && placementMode !== 'select-domino' ? 0 : -1}
+                    aria-label={`Cell at row ${row + 1}, column ${col + 1}`}
+                    onKeyDown={(e) => {
+                      if ((e.key === 'Enter' || e.key === ' ') && isClickable && placementMode !== 'select-domino') {
+                        e.preventDefault();
+                        handleCellClick(row, col);
+                      }
+                    }}
                   >
                     {placement && domino ? (
                       <div className={`w-full h-full ${placement.orientation === 'horizontal' ? 'flex' : 'flex flex-col'}`}>
@@ -395,7 +416,7 @@ const PuzzleBoard = () => {
                         ) : null}
                       </div>
                     ) : (
-                      <div className="text-xs text-gray-400">
+                      <div className="text-[10px] sm:text-xs text-gray-400">
                         {isHighlighted ? '✓' : ''}
                       </div>
                     )}
@@ -403,10 +424,10 @@ const PuzzleBoard = () => {
                 );
               })
             )}
-          </div>
+            </div>
 
-          {/* Rule badges layer */}
-          {currentPuzzle.regions.map(region => {
+            {/* Rule badges layer */}
+            {currentPuzzle.regions.map(region => {
             const bounds = getRegionBounds(region.id);
             if (!bounds) return null;
             
@@ -432,18 +453,19 @@ const PuzzleBoard = () => {
                 }}
               >
                 <div 
-                  className="w-6 h-6 rounded-md text-white transform rotate-45 flex items-center justify-center"
+                  className="w-5 h-5 sm:w-6 sm:h-6 rounded-md text-white transform rotate-45 flex items-center justify-center shadow-md"
                   style={{
                     backgroundColor: color.bg,
                   }}
                 >
-                  <span className="transform -rotate-45 text-xs font-bold">
+                  <span className="transform -rotate-45 text-[10px] sm:text-xs font-bold">
                     {label}
                   </span>
                 </div>
               </div>
             );
-          })}
+            })}
+          </div>
         </div>
       </div>
     </div>
