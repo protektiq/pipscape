@@ -1,14 +1,16 @@
-import type { Region } from '../types/puzzle';
+import type { Region, Puzzle } from '../types/puzzle';
 import { getRegionColor, getRegionEdgeInfo, isOuterCorner, getBottomLeftCell } from '../engine/regionUtils';
 import { formatRuleLabel } from '../engine/ruleUtils';
 
 interface RegionProps {
   region: Region;
-  gridSize: number;
+  puzzle: Puzzle;
   allRegions: Region[];
 }
 
-const RegionComponent = ({ region, gridSize, allRegions }: RegionProps) => {
+const RegionComponent = ({ region, puzzle, allRegions }: RegionProps) => {
+  const rows = puzzle.rows;
+  const cols = puzzle.cols;
   const color = getRegionColor(region.id);
   const label = formatRuleLabel(region.rule);
   const bottomLeftCell = getBottomLeftCell(region);
@@ -21,16 +23,17 @@ const RegionComponent = ({ region, gridSize, allRegions }: RegionProps) => {
         className="absolute inset-0 pointer-events-none"
       >
         {region.cells.map(cell => {
-          const cellSize = `calc(100% / ${gridSize})`;
+          const cellWidth = `calc(100% / ${cols})`;
+          const cellHeight = `calc(100% / ${rows})`;
           return (
             <div
               key={`bg-${cell.row}-${cell.col}`}
               style={{
                 position: 'absolute',
-                top: `${(cell.row / gridSize) * 100}%`,
-                left: `${(cell.col / gridSize) * 100}%`,
-                width: cellSize,
-                height: cellSize,
+                top: `${(cell.row / rows) * 100}%`,
+                left: `${(cell.col / cols) * 100}%`,
+                width: cellWidth,
+                height: cellHeight,
                 backgroundColor: color.bg,
                 opacity: 0.2,
               }}
@@ -50,15 +53,16 @@ const RegionComponent = ({ region, gridSize, allRegions }: RegionProps) => {
             cell.col,
             region.id,
             allRegions,
-            gridSize
+            puzzle
           );
           
-          const cellSize = `calc(100% / ${gridSize})`;
+          const cellWidth = `calc(100% / ${cols})`;
+          const cellHeight = `calc(100% / ${rows})`;
           const borderWidth = '2px';
-          const isOuterTL = isOuterCorner(cell.row, cell.col, region.id, allRegions, 'tl', gridSize);
-          const isOuterTR = isOuterCorner(cell.row, cell.col, region.id, allRegions, 'tr', gridSize);
-          const isOuterBL = isOuterCorner(cell.row, cell.col, region.id, allRegions, 'bl', gridSize);
-          const isOuterBR = isOuterCorner(cell.row, cell.col, region.id, allRegions, 'br', gridSize);
+          const isOuterTL = isOuterCorner(cell.row, cell.col, region.id, allRegions, 'tl', puzzle);
+          const isOuterTR = isOuterCorner(cell.row, cell.col, region.id, allRegions, 'tr', puzzle);
+          const isOuterBL = isOuterCorner(cell.row, cell.col, region.id, allRegions, 'bl', puzzle);
+          const isOuterBR = isOuterCorner(cell.row, cell.col, region.id, allRegions, 'br', puzzle);
           
           return (
             <div
@@ -66,10 +70,10 @@ const RegionComponent = ({ region, gridSize, allRegions }: RegionProps) => {
               className="border-dashed"
               style={{
                 position: 'absolute',
-                top: `${(cell.row / gridSize) * 100}%`,
-                left: `${(cell.col / gridSize) * 100}%`,
-                width: cellSize,
-                height: cellSize,
+                top: `${(cell.row / rows) * 100}%`,
+                left: `${(cell.col / cols) * 100}%`,
+                width: cellWidth,
+                height: cellHeight,
                 borderTopWidth: edgeInfo.top ? borderWidth : '0',
                 borderRightWidth: edgeInfo.right ? borderWidth : '0',
                 borderBottomWidth: edgeInfo.bottom ? borderWidth : '0',
@@ -88,8 +92,8 @@ const RegionComponent = ({ region, gridSize, allRegions }: RegionProps) => {
           key={`badge-${region.id}`}
           className="absolute pointer-events-none z-20"
           style={{
-            top: `${((bottomLeftCell.row + 1) / gridSize) * 100}%`,
-            left: `${(bottomLeftCell.col / gridSize) * 100}%`,
+            top: `${((bottomLeftCell.row + 1) / rows) * 100}%`,
+            left: `${(bottomLeftCell.col / cols) * 100}%`,
             transform: 'translate(-50%, -50%)',
           }}
         >

@@ -1,4 +1,5 @@
-import type { Region, Cell } from '../types/puzzle';
+import type { Region, Cell, Puzzle } from '../types/puzzle';
+import { buildCellLookup } from '../types/puzzle';
 
 // Region color palette with RGB values
 export const REGION_COLORS = [
@@ -43,50 +44,66 @@ export const isCellInRegion = (row: number, col: number, regionId: string, regio
   return region.cells.some(cell => cell.row === row && cell.col === col);
 };
 
-// Get boundary edge information for a cell
+// Get boundary edge information for a cell (works with sparse grids)
 export const getRegionEdgeInfo = (
   row: number, 
   col: number, 
   regionId: string,
   regions: Region[],
-  gridSize: number
+  puzzle: Puzzle
 ): EdgeInfo => {
-  const top = row === 0 || !isCellInRegion(row - 1, col, regionId, regions);
-  const right = col === gridSize - 1 || !isCellInRegion(row, col + 1, regionId, regions);
-  const bottom = row === gridSize - 1 || !isCellInRegion(row + 1, col, regionId, regions);
-  const left = col === 0 || !isCellInRegion(row, col - 1, regionId, regions);
+  const cellMap = buildCellLookup(puzzle);
+  
+  // Check if neighbor exists and is in the same region
+  const top = row === 0 || 
+              !cellMap.has(`${row - 1}-${col}`) || 
+              !isCellInRegion(row - 1, col, regionId, regions);
+  const right = col === puzzle.cols - 1 || 
+                !cellMap.has(`${row}-${col + 1}`) || 
+                !isCellInRegion(row, col + 1, regionId, regions);
+  const bottom = row === puzzle.rows - 1 || 
+                 !cellMap.has(`${row + 1}-${col}`) || 
+                 !isCellInRegion(row + 1, col, regionId, regions);
+  const left = col === 0 || 
+               !cellMap.has(`${row}-${col - 1}`) || 
+               !isCellInRegion(row, col - 1, regionId, regions);
   
   return { top, right, bottom, left };
 };
 
-// Check if a corner is an outer corner (convex corner)
+// Check if a corner is an outer corner (convex corner) - works with sparse grids
 export const isOuterCorner = (
   row: number,
   col: number,
   regionId: string,
   regions: Region[],
   corner: 'tl' | 'tr' | 'bl' | 'br',
-  gridSize: number
+  puzzle: Puzzle
 ): boolean => {
-  const edgeInfo = getRegionEdgeInfo(row, col, regionId, regions, gridSize);
+  const edgeInfo = getRegionEdgeInfo(row, col, regionId, regions, puzzle);
+  const cellMap = buildCellLookup(puzzle);
   
   if (corner === 'tl') {
     // Top-left corner: both top and left edges are boundaries
-    // And diagonal cell (top-left) is not in region
+    // And diagonal cell (top-left) is not in region or doesn't exist
     return edgeInfo.top && edgeInfo.left && 
-           !isCellInRegion(row - 1, col - 1, regionId, regions);
+           (!cellMap.has(`${row - 1}-${col - 1}`) || 
+            !isCellInRegion(row - 1, col - 1, regionId, regions));
   } else if (corner === 'tr') {
     // Top-right corner: both top and right edges are boundaries
     return edgeInfo.top && edgeInfo.right &&
-           !isCellInRegion(row - 1, col + 1, regionId, regions);
+           (!cellMap.has(`${row - 1}-${col + 1}`) || 
+            !isCellInRegion(row - 1, col + 1, regionId, regions));
   } else if (corner === 'bl') {
     // Bottom-left corner: both bottom and left edges are boundaries
     return edgeInfo.bottom && edgeInfo.left &&
-           !isCellInRegion(row + 1, col - 1, regionId, regions);
+           (!cellMap.has(`${row + 1}-${col - 1}`) || 
+            !isCellInRegion(row + 1, col - 1, regionId, regions));
   } else if (corner === 'br') {
     // Bottom-right corner: both bottom and right edges are boundaries
     return edgeInfo.bottom && edgeInfo.right &&
-           !isCellInRegion(row + 1, col + 1, regionId, regions);
+           (!cellMap.has(`${row + 1}-${col + 1}`) || 
+            !isCellInRegion(row + 1, col + 1, regionId, regions));
   }
   
   return false;

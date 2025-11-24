@@ -1,15 +1,18 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import type { Puzzle, Cell, Placement, ValidationResult } from '../types/puzzle';
+import type { Puzzle, CellPosition, Placement, ValidationResult } from '../types/puzzle';
+import { buildCellLookup } from '../types/puzzle';
 import { getPlacementForCell } from '../engine/placementUtils';
 import { getDominoForPlacement } from '../engine/dominoUtils';
 import { getRegionForCell } from '../engine/regionUtils';
 import RegionComponent from './Region';
 import DominoTile from './DominoTile';
+import DroppableCell from './DroppableCell';
+import DraggableDomino from './DraggableDomino';
 
 interface BoardProps {
   puzzle: Puzzle;
   placementMode: 'select-domino' | 'place-first' | 'place-second';
-  firstCell: Cell | null;
+  firstCell: CellPosition | null;
   validationResult: ValidationResult | null;
   onCellClick: (row: number, col: number) => void;
   onMovePlacement: (fromRow: number, fromCol: number, toRow: number, toCol: number) => void;
@@ -23,7 +26,9 @@ const Board = ({
   onCellClick,
   onMovePlacement,
 }: BoardProps) => {
-  const gridSize = puzzle.gridSize;
+  const rows = puzzle.rows;
+  const cols = puzzle.cols;
+  const cellMap = buildCellLookup(puzzle);
   
   // Drag state
   const [dragState, setDragState] = useState<{
@@ -89,18 +94,22 @@ const Board = ({
     const relativeX = clientX - rect.left;
     const relativeY = clientY - rect.top;
     
-    const cellWidth = rect.width / gridSize;
-    const cellHeight = rect.height / gridSize;
+    const cellWidth = rect.width / cols;
+    const cellHeight = rect.height / rows;
     
     const col = Math.floor(relativeX / cellWidth);
     const row = Math.floor(relativeY / cellHeight);
     
-    if (row >= 0 && row < gridSize && col >= 0 && col < gridSize) {
-      return { row, col };
+    if (row >= 0 && row < rows && col >= 0 && col < cols) {
+      // Only return if the cell exists (for sparse grids)
+      const key = `${row}-${col}`;
+      if (cellMap.has(key)) {
+        return { row, col };
+      }
     }
     
     return null;
-  }, [gridSize]);
+  }, [rows, cols, cellMap]);
 
   const handleDragStart = (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>, row: number, col: number) => {
     const placement = getPlacement(row, col);
@@ -212,16 +221,23 @@ const Board = ({
             <div
               className="grid gap-0 border-2 border-gray-300 bg-white h-full"
               style={{
-                gridTemplateColumns: `repeat(${gridSize}, minmax(0, 1fr))`,
+                gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
+                gridTemplateRows: `repeat(${rows}, minmax(0, 1fr))`,
               }}
             >
-              {Array.from({ length: gridSize }).map((_, row) =>
-                Array.from({ length: gridSize }).map((_, col) => (
-                  <div
-                    key={`bg-${row}-${col}`}
-                    className="aspect-square border-r border-b border-gray-200 pointer-events-none"
-                  />
-                ))
+              {Array.from({ length: rows }).map((_, row) =>
+                Array.from({ length: cols }).map((_, col) => {
+                  const key = `${row}-${col}`;
+                  const cellExists = cellMap.has(key);
+                  return (
+                    <div
+                      key={`bg-${row}-${col}`}
+                      className={`aspect-square border-r border-b border-gray-200 pointer-events-none ${
+                        !cellExists ? 'bg-transparent' : ''
+                      }`}
+                    />
+                  );
+                })
               )}
             </div>
 
@@ -230,7 +246,7 @@ const Board = ({
               <RegionComponent
                 key={region.id}
                 region={region}
-                gridSize={gridSize}
+                puzzle={puzzle}
                 allRegions={puzzle.regions}
               />
             ))}
@@ -239,11 +255,24 @@ const Board = ({
             <div
               className="grid gap-0 absolute inset-0"
               style={{
-                gridTemplateColumns: `repeat(${gridSize}, minmax(0, 1fr))`,
+                gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
+                gridTemplateRows: `repeat(${rows}, minmax(0, 1fr))`,
               }}
             >
-              {Array.from({ length: gridSize }).map((_, row) =>
-                Array.from({ length: gridSize }).map((_, col) => {
+              {Array.from({ length: rows }).map((_, row) =>
+                Array.from({ length: cols }).map((_, col) => {
+                  const key = `${row}-${col}`;
+                  const cell = cellMap.get(key);
+                  
+                  // If cell doesn't exist, render transparent spacer
+                  if (!cell) {
+                    return (
+                      <div
+                        key={`spacer-${row}-${col}`}
+                        className="bg-transparent pointer-events-none"
+                      />
+                    );
+                  }
                   const placement = getPlacement(row, col);
                   const isInvalid = isCellInvalid(row, col);
                   const isHighlighted = isCellHighlighted(row, col);
@@ -264,24 +293,12 @@ const Board = ({
                   // Check if this cell can be dragged
                   const isDraggable = placement !== undefined;
 
+                  const cellId = `cell-${row}-${col}`;
+
                   return (
-                    <div
-                      key={`${row}-${col}`}
-                      onClick={() => handleCellClick(row, col)}
-                      onMouseDown={(e) => {
-                        if (isDraggable) {
-                          handleDragStart(e, row, col);
-                        }
-                      }}
-                      onTouchStart={(e) => {
-                        // Prevent double-tap zoom on mobile
-                        if (e.touches.length > 1) {
-                          e.preventDefault();
-                        }
-                        if (isDraggable) {
-                          handleDragStart(e, row, col);
-                        }
-                      }}
+                    <DroppableCell
+                      key={cellId}
+                      id={cellId}
                       className={`
                         aspect-square
                         ${isInvalid ? 'bg-red-100' : ''}
@@ -295,20 +312,39 @@ const Board = ({
                         relative z-10
                         min-h-[44px] min-w-[44px]
                       `}
-                      role="button"
-                      tabIndex={isClickable && placementMode !== 'select-domino' ? 0 : -1}
-                      aria-label={`Cell at row ${row + 1}, column ${col + 1}`}
-                      onKeyDown={(e) => {
-                        if ((e.key === 'Enter' || e.key === ' ') && isClickable && placementMode !== 'select-domino') {
-                          e.preventDefault();
-                          handleCellClick(row, col);
-                        }
-                      }}
                     >
-                      <div className="text-[10px] sm:text-xs text-gray-400">
-                        {isHighlighted ? '✓' : ''}
+                      <div
+                        onClick={() => handleCellClick(row, col)}
+                        onMouseDown={(e) => {
+                          if (isDraggable) {
+                            handleDragStart(e, row, col);
+                          }
+                        }}
+                        onTouchStart={(e) => {
+                          // Prevent double-tap zoom on mobile
+                          if (e.touches.length > 1) {
+                            e.preventDefault();
+                          }
+                          if (isDraggable) {
+                            handleDragStart(e, row, col);
+                          }
+                        }}
+                        className="w-full h-full flex items-center justify-center"
+                        role="button"
+                        tabIndex={isClickable && placementMode !== 'select-domino' ? 0 : -1}
+                        aria-label={`Cell at row ${row + 1}, column ${col + 1}`}
+                        onKeyDown={(e) => {
+                          if ((e.key === 'Enter' || e.key === ' ') && isClickable && placementMode !== 'select-domino') {
+                            e.preventDefault();
+                            handleCellClick(row, col);
+                          }
+                        }}
+                      >
+                        <div className="text-[10px] sm:text-xs text-gray-400">
+                          {isHighlighted ? '✓' : ''}
+                        </div>
                       </div>
-                    </div>
+                    </DroppableCell>
                   );
                 })
               )}
@@ -318,8 +354,8 @@ const Board = ({
             <div
               className="pointer-events-none absolute inset-0 grid"
               style={{
-                gridTemplateColumns: `repeat(${gridSize}, minmax(0, 1fr))`,
-                gridTemplateRows: `repeat(${gridSize}, minmax(0, 1fr))`,
+                gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
+                gridTemplateRows: `repeat(${rows}, minmax(0, 1fr))`,
               }}
             >
               {puzzle.placements.map(placement => {
@@ -350,16 +386,22 @@ const Board = ({
 
                 return (
                   <div
-                    key={`${placement.dominoId}-${row}-${col}`}
+                    key={placement.id}
                     style={areaStyles}
-                    className={`flex items-center justify-center p-1 sm:p-1.5 pointer-events-none ${isDragged ? 'opacity-50' : ''}`}
+                    className={`flex items-center justify-center p-1 sm:p-1.5 pointer-events-auto ${isDragged ? 'opacity-50' : ''}`}
                   >
-                    <DominoTile
-                      left={domino.left}
-                      right={domino.right}
-                      variant="board"
-                      className={orientation === 'vertical' ? 'rotate-90' : ''}
-                    />
+                    <DraggableDomino
+                      id={`placement-${placement.dominoId}`}
+                      data={{ type: 'board', placementId: placement.dominoId }}
+                      className="w-full h-full"
+                    >
+                      <DominoTile
+                        left={domino.left}
+                        right={domino.right}
+                        variant="board"
+                        orientation={orientation}
+                      />
+                    </DraggableDomino>
                   </div>
                 );
               })}

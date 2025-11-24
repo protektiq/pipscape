@@ -1,13 +1,15 @@
 import { usePuzzleStore } from '../store/puzzleStore';
 import { isDominoPlaced } from '../engine/placementEngine';
 import DominoTile from './DominoTile';
+import DraggableDomino from './DraggableDomino';
 
 const DominoTray = () => {
   const {
     currentPuzzle,
     selectedDominoId,
+    selectedOrientation,
     selectDomino,
-    clearSelection,
+    rotateSelectedDomino,
   } = usePuzzleStore();
 
   if (!currentPuzzle) {
@@ -25,8 +27,10 @@ const DominoTray = () => {
     }
 
     if (selectedDominoId === dominoId) {
-      clearSelection();
+      // Same domino clicked - rotate orientation
+      rotateSelectedDomino();
     } else {
+      // Different domino clicked - select it (resets orientation to horizontal)
       selectDomino(dominoId);
     }
   };
@@ -67,14 +71,21 @@ const DominoTray = () => {
             const isPlacedDomino = isPlaced(domino.id);
 
             return (
-              <DominoTile
+              <DraggableDomino
                 key={domino.id}
-                left={domino.left}
-                right={domino.right}
-                selected={isSelected}
+                id={domino.id}
+                data={{ type: 'tray', dominoId: domino.id }}
                 disabled={isPlacedDomino}
-                onClick={() => handleDominoClick(domino.id)}
-              />
+              >
+                <DominoTile
+                  left={domino.left}
+                  right={domino.right}
+                  selected={isSelected}
+                  disabled={isPlacedDomino}
+                  orientation={isSelected ? selectedOrientation : 'horizontal'}
+                  onClick={() => handleDominoClick(domino.id)}
+                />
+              </DraggableDomino>
             );
           });
         })}

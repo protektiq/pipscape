@@ -1,8 +1,9 @@
-import type { Placement, Cell } from '../types/puzzle';
+import type { Placement, CellPosition, Puzzle } from '../types/puzzle';
+import { buildCellLookup } from '../types/puzzle';
 
-// Get the two cells occupied by a placement
-export const getPlacementCells = (placement: Placement): Cell[] => {
-  const cells: Cell[] = [
+// Get the two cell positions occupied by a placement
+export const getPlacementCells = (placement: Placement): CellPosition[] => {
+  const cells: CellPosition[] = [
     { row: placement.row, col: placement.col },
   ];
 
@@ -15,12 +16,23 @@ export const getPlacementCells = (placement: Placement): Cell[] => {
   return cells;
 };
 
-// Check if a cell is within grid bounds
-export const isWithinBounds = (cell: Cell, gridSize: number): boolean => {
+// Check if a cell position is within grid bounds
+export const isWithinBounds = (cell: CellPosition, rows: number, cols: number): boolean => {
   return cell.row >= 0 && 
-         cell.row < gridSize && 
+         cell.row < rows && 
          cell.col >= 0 && 
-         cell.col < gridSize;
+         cell.col < cols;
+};
+
+// Check if a cell position exists in the puzzle (for sparse grids)
+export const cellExists = (cell: CellPosition, puzzle: Puzzle): boolean => {
+  const cellMap = buildCellLookup(puzzle);
+  return cellMap.has(`${cell.row}-${cell.col}`);
+};
+
+// Check if a cell position is valid (within bounds AND exists in sparse grid)
+export const isValidCell = (cell: CellPosition, puzzle: Puzzle): boolean => {
+  return isWithinBounds(cell, puzzle.rows, puzzle.cols) && cellExists(cell, puzzle);
 };
 
 // Check if two placements overlap
@@ -47,23 +59,23 @@ export const getPlacementForCell = (row: number, col: number, placements: Placem
   });
 };
 
-// Check if two cells are adjacent (horizontally or vertically)
-export const areCellsAdjacent = (cell1: Cell, cell2: Cell): boolean => {
+// Check if two cell positions are adjacent (horizontally or vertically)
+export const areCellsAdjacent = (cell1: CellPosition, cell2: CellPosition): boolean => {
   const rowDiff = Math.abs(cell1.row - cell2.row);
   const colDiff = Math.abs(cell1.col - cell2.col);
   return (rowDiff === 1 && colDiff === 0) || (rowDiff === 0 && colDiff === 1);
 };
 
-// Determine placement orientation from two cells
-export const getPlacementOrientation = (cell1: Cell, cell2: Cell): 'horizontal' | 'vertical' => {
+// Determine placement orientation from two cell positions
+export const getPlacementOrientation = (cell1: CellPosition, cell2: CellPosition): 'horizontal' | 'vertical' => {
   const colDiff = cell2.col - cell1.col;
   return colDiff !== 0 ? 'horizontal' : 'vertical';
 };
 
-// Create a placement from two cells, ensuring first cell is leftmost/topmost
+// Create a placement from two cell positions, ensuring first cell is leftmost/topmost
 export const createPlacementFromCells = (
-  cell1: Cell,
-  cell2: Cell,
+  cell1: CellPosition,
+  cell2: CellPosition,
   dominoId: string
 ): Placement => {
   const orientation = getPlacementOrientation(cell1, cell2);
@@ -73,6 +85,7 @@ export const createPlacementFromCells = (
   const startCol = orientation === 'horizontal' ? Math.min(cell1.col, cell2.col) : cell1.col;
 
   return {
+    id: `${dominoId}-${startRow}-${startCol}`,
     dominoId,
     row: startRow,
     col: startCol,
@@ -86,8 +99,8 @@ export const cellHasPlacement = (row: number, col: number, placements: Placement
   return getPlacementForCell(row, col, placements) !== undefined;
 };
 
-// Check if a placement can be rotated without going out of bounds
-export const canRotatePlacement = (placement: Placement, gridSize: number): boolean => {
+// Check if a placement can be rotated without going out of bounds and cells exist
+export const canRotatePlacement = (placement: Placement, puzzle: Puzzle): boolean => {
   const newOrientation = placement.orientation === 'horizontal' ? 'vertical' : 'horizontal';
   const rotatedPlacement: Placement = {
     ...placement,
@@ -95,15 +108,15 @@ export const canRotatePlacement = (placement: Placement, gridSize: number): bool
   };
   
   const cells = getPlacementCells(rotatedPlacement);
-  return cells.every(cell => isWithinBounds(cell, gridSize));
+  return cells.every(cell => isValidCell(cell, puzzle));
 };
 
 // Calculate new placement position based on drag target
 // Returns the new placement if valid, null otherwise
 export const getPlacementAtDragTarget = (
   placement: Placement,
-  targetCell: Cell,
-  gridSize: number
+  targetCell: CellPosition,
+  puzzle: Puzzle
 ): Placement | null => {
   // Try both orientations to see which one fits
   const orientations: ('horizontal' | 'vertical')[] = ['horizontal', 'vertical'];
@@ -112,13 +125,14 @@ export const getPlacementAtDragTarget = (
     // Try placing with targetCell as the first cell
     const candidate1: Placement = {
       ...placement,
+      id: `${placement.dominoId}-${targetCell.row}-${targetCell.col}`,
       row: targetCell.row,
       col: targetCell.col,
       orientation,
     };
     
     const cells1 = getPlacementCells(candidate1);
-    if (cells1.every(cell => isWithinBounds(cell, gridSize))) {
+    if (cells1.every(cell => isValidCell(cell, puzzle))) {
       return candidate1;
     }
     
@@ -127,6 +141,7 @@ export const getPlacementAtDragTarget = (
     if (orientation === 'horizontal') {
       candidate2 = {
         ...placement,
+        id: `${placement.dominoId}-${targetCell.row}-${targetCell.col - 1}`,
         row: targetCell.row,
         col: targetCell.col - 1,
         orientation,
@@ -134,6 +149,7 @@ export const getPlacementAtDragTarget = (
     } else {
       candidate2 = {
         ...placement,
+        id: `${placement.dominoId}-${targetCell.row - 1}-${targetCell.col}`,
         row: targetCell.row - 1,
         col: targetCell.col,
         orientation,
@@ -141,7 +157,7 @@ export const getPlacementAtDragTarget = (
     }
     
     const cells2 = getPlacementCells(candidate2);
-    if (cells2.every(cell => isWithinBounds(cell, gridSize))) {
+    if (cells2.every(cell => isValidCell(cell, puzzle))) {
       return candidate2;
     }
   }

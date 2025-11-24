@@ -1,4 +1,5 @@
 import type { Puzzle } from '../types/puzzle';
+import { buildCellLookup } from '../types/puzzle';
 import { getRegionColor } from '../engine/regionUtils';
 import RegionComponent from './Region';
 
@@ -7,6 +8,10 @@ interface PrintLayoutProps {
 }
 
 const PrintLayout = ({ puzzle }: PrintLayoutProps) => {
+  const cellMap = buildCellLookup(puzzle);
+  const rows = puzzle.rows;
+  const cols = puzzle.cols;
+  
   return (
     <div className="min-h-screen bg-white p-8 print:p-4">
       <div className="max-w-4xl mx-auto print:max-w-none">
@@ -28,18 +33,25 @@ const PrintLayout = ({ puzzle }: PrintLayoutProps) => {
             <div
               className="grid gap-0 border-2 border-gray-300 bg-white print:border-gray-600"
               style={{
-                gridTemplateColumns: `repeat(${puzzle.gridSize}, minmax(0, 1fr))`,
+                gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
+                gridTemplateRows: `repeat(${rows}, minmax(0, 1fr))`,
                 width: 'min(85vw, calc(100vh - 5cm), 750px)',
                 height: 'min(85vw, calc(100vh - 5cm), 750px)',
               }}
             >
-              {Array.from({ length: puzzle.gridSize }).map((_, row) =>
-                Array.from({ length: puzzle.gridSize }).map((_, col) => (
-                  <div
-                    key={`bg-${row}-${col}`}
-                    className="aspect-square border-r border-b border-gray-200 print:border-gray-400 pointer-events-none"
-                  />
-                ))
+              {Array.from({ length: rows }).map((_, row) =>
+                Array.from({ length: cols }).map((_, col) => {
+                  const key = `${row}-${col}`;
+                  const cellExists = cellMap.has(key);
+                  return (
+                    <div
+                      key={`bg-${row}-${col}`}
+                      className={`aspect-square border-r border-b border-gray-200 print:border-gray-400 pointer-events-none ${
+                        !cellExists ? 'bg-transparent' : ''
+                      }`}
+                    />
+                  );
+                })
               )}
             </div>
 
@@ -48,7 +60,7 @@ const PrintLayout = ({ puzzle }: PrintLayoutProps) => {
               <RegionComponent
                 key={region.id}
                 region={region}
-                gridSize={puzzle.gridSize}
+                puzzle={puzzle}
                 allRegions={puzzle.regions}
               />
             ))}
@@ -57,11 +69,12 @@ const PrintLayout = ({ puzzle }: PrintLayoutProps) => {
             <div
               className="grid gap-0 absolute inset-0"
               style={{
-                gridTemplateColumns: `repeat(${puzzle.gridSize}, minmax(0, 1fr))`,
+                gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
+                gridTemplateRows: `repeat(${rows}, minmax(0, 1fr))`,
               }}
             >
-              {Array.from({ length: puzzle.gridSize }).map((_, row) =>
-                Array.from({ length: puzzle.gridSize }).map((_, col) => (
+              {Array.from({ length: rows }).map((_, row) =>
+                Array.from({ length: cols }).map((_, col) => (
                   <div
                     key={`${row}-${col}`}
                     className="aspect-square flex items-center justify-center bg-transparent pointer-events-none"

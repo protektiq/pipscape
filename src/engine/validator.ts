@@ -1,6 +1,6 @@
 import type { Puzzle, Placement, ValidationResult } from '../types/puzzle';
 import { RuleType } from '../types/puzzle';
-import { getPlacementCells, isWithinBounds, placementsOverlap } from './placementUtils';
+import { getPlacementCells, isValidCell, placementsOverlap } from './placementUtils';
 import { getDominoValue } from './dominoUtils';
 
 // Validate a single placement
@@ -19,12 +19,12 @@ export const validatePlacement = (
 
   const cells = getPlacementCells(placement);
 
-  // Check bounds
+  // Check bounds and cell existence (for sparse grids)
   for (const cell of cells) {
-    if (!isWithinBounds(cell, puzzle.gridSize)) {
+    if (!isValidCell(cell, puzzle)) {
       return {
         isValid: false,
-        error: 'Placement is out of bounds',
+        error: 'Placement is out of bounds or cell does not exist',
       };
     }
   }

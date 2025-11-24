@@ -9,6 +9,7 @@ interface DominoTileProps {
   selected?: boolean;
   disabled?: boolean;
   variant?: 'tray' | 'board';
+  orientation?: 'horizontal' | 'vertical';
   onClick?: () => void;
   className?: string;
 }
@@ -49,11 +50,11 @@ const DominoSide = ({ value }: { value: number }) => {
   const positions = getPipPositions(value);
 
   return (
-    <div className="flex-1 grid grid-rows-3 grid-cols-3 px-1 py-0.5">
+    <div className="flex-1 grid grid-rows-3 grid-cols-3 px-1 py-0.5 min-w-0 min-h-0">
       {Array.from({ length: 9 }).map((_, i) => (
-        <div key={i} className="flex items-center justify-center">
+        <div key={i} className="flex items-center justify-center min-w-0 min-h-0">
           {positions.includes(i) && (
-            <div className="w-2 h-2 rounded-full bg-slate-900" />
+            <div className="w-2 h-2 rounded-full bg-slate-900 flex-shrink-0" />
           )}
         </div>
       ))}
@@ -67,6 +68,7 @@ const DominoTile = ({
   selected = false,
   disabled = false,
   variant = 'tray',
+  orientation = 'horizontal',
   onClick,
   className = '',
 }: DominoTileProps) => {
@@ -78,9 +80,16 @@ const DominoTile = ({
     !disabled && variant === 'tray' && 'cursor-pointer hover:-translate-y-0.5 hover:shadow-md',
     selected && 'ring-2 ring-indigo-500 ring-offset-1 ring-offset-slate-50 scale-[1.04]',
     disabled && variant === 'tray' && 'opacity-40 cursor-default',
+    variant === 'tray' && orientation === 'vertical' && 'rotate-90',
   ].filter(Boolean).join(' ');
 
   const Component = variant === 'board' ? 'div' : 'button';
+
+  // For vertical orientation, stack sides vertically instead of horizontally
+  const flexDirection = orientation === 'vertical' ? 'flex-col' : 'flex-row';
+  const dividerClass = orientation === 'vertical'
+    ? 'pointer-events-none absolute inset-x-1 top-1/2 h-px bg-slate-300/80'
+    : 'pointer-events-none absolute inset-y-1 left-1/2 w-px bg-slate-300/80';
 
   return (
     <Component
@@ -88,6 +97,7 @@ const DominoTile = ({
       disabled={disabled}
       className={cn(
         "relative flex items-stretch justify-between overflow-hidden",
+        flexDirection,
         baseSizeClasses,
         "bg-gradient-to-b from-slate-50 to-slate-100",
         "border border-slate-300 shadow-sm shadow-[inset_0_0_0_1px_rgba(148,163,184,0.35)]",
@@ -99,7 +109,7 @@ const DominoTile = ({
       aria-pressed={variant === 'tray' ? selected : undefined}
     >
       {/* Center dividing line */}
-      <div className="pointer-events-none absolute inset-y-1 left-1/2 w-px bg-slate-300/80" />
+      <div className={dividerClass} />
       
       <DominoSide value={left} />
       <DominoSide value={right} />
