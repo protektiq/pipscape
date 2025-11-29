@@ -48,31 +48,55 @@ export const usePuzzleInitialization = ({
           : 'medium')
       : 'medium';
 
+    // If no difficulty in URL, redirect to include it
+    if (!difficulty) {
+      console.log(`[usePuzzleInitialization] No difficulty in URL, redirecting to /play/${targetDifficulty}`);
+      navigate(`/play/${targetDifficulty}`, { replace: true });
+      return;
+    }
+
     const puzzle = currentPuzzleRef.current;
     const puzzleId = puzzle?.id || null;
 
     // Only generate if:
-    // 1. We haven't requested this difficulty yet, OR
-    // 2. We don't have a puzzle, OR
-    // 3. The current puzzle's difficulty doesn't match
-    // AND we haven't already generated for this specific puzzle (if puzzle exists)
+    // 1. We don't have a puzzle at all (no persisted puzzle), OR
+    // 2. The current puzzle's difficulty doesn't match the URL difficulty, AND
+    // 3. We haven't already generated for this difficulty in this session
+    // 
+    // IMPORTANT: Generate new puzzle when difficulty changes, even if persisted puzzle exists
+    const difficultyMismatch = puzzle && puzzle.difficulty !== targetDifficulty;
     const shouldGenerate =
-      (lastRequestedDifficulty.current !== targetDifficulty ||
-        !puzzle ||
-        puzzle.difficulty !== targetDifficulty) &&
-      (puzzleId === null || lastPuzzleId.current !== puzzleId);
+      (!puzzle || difficultyMismatch) && // Generate if no puzzle OR difficulty mismatch
+      lastRequestedDifficulty.current !== targetDifficulty;
+    
+    console.log(`[usePuzzleInitialization] Difficulty check:`, {
+      urlDifficulty: difficulty,
+      targetDifficulty,
+      currentPuzzleDifficulty: puzzle?.difficulty,
+      difficultyMismatch,
+      lastRequested: lastRequestedDifficulty.current,
+      shouldGenerate,
+    });
 
     if (shouldGenerate) {
       console.log(`[usePuzzleInitialization] Generating puzzle for ${targetDifficulty}`, {
         lastRequested: lastRequestedDifficulty.current,
         hasPuzzle: !!puzzle,
-        puzzleDifficulty: puzzle?.difficulty,
         puzzleId,
         lastPuzzleId: lastPuzzleId.current,
+        currentPuzzleDifficulty: puzzle?.difficulty,
+        urlDifficulty: difficulty,
       });
       
       lastRequestedDifficulty.current = targetDifficulty;
       // Don't set lastPuzzleId yet - wait until puzzle is generated
+      
+      // If difficulty mismatch, clear the old puzzle first by setting it to null
+      // This ensures the UI doesn't show the wrong puzzle while generating
+      if (difficultyMismatch && puzzle) {
+        console.log(`[usePuzzleInitialization] Clearing puzzle with difficulty ${puzzle.difficulty} before generating ${targetDifficulty}`);
+        // We can't directly set the puzzle to null here, but the generatePuzzle will replace it
+      }
       
       // Generate IMMEDIATELY - no delays, no deferring
       void generatePuzzleRef.current(targetDifficulty).then(() => {
@@ -80,6 +104,11 @@ export const usePuzzleInitialization = ({
         const newPuzzle = currentPuzzleRef.current;
         if (newPuzzle) {
           lastPuzzleId.current = newPuzzle.id;
+          console.log(`[usePuzzleInitialization] Puzzle generated successfully:`, {
+            id: newPuzzle.id,
+            difficulty: newPuzzle.difficulty,
+            targetDifficulty,
+          });
         }
       }).catch((error) => {
         // Reset on error so user can retry
@@ -94,6 +123,7 @@ export const usePuzzleInitialization = ({
         puzzleDifficulty: puzzle?.difficulty,
         puzzleId,
         lastPuzzleId: lastPuzzleId.current,
+        urlDifficulty: difficulty,
       });
     }
     // Only depend on URL params, not currentPuzzle to prevent infinite loops

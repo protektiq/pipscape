@@ -74,7 +74,7 @@ const DominoTray = () => {
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-lg p-3 sm:p-4">
+    <div className="frosted-glass rounded-2xl shadow-card p-3 sm:p-4">
       <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-3 sm:mb-4">
         Available Dominoes
       </h2>
@@ -108,8 +108,19 @@ const DominoTray = () => {
       </div>
 
       {selectedDominoId && (
-        <div className="mt-3 sm:mt-4 p-2 sm:p-3 bg-blue-50 border border-blue-200 rounded-lg">
-          <p className="text-xs sm:text-sm text-blue-800">
+        <div 
+          className="mt-3 sm:mt-4 p-2 sm:p-3 rounded-xl shadow-sm"
+          style={{
+            backgroundColor: 'rgba(110, 160, 180, 0.6)', // sky
+            border: '1px solid rgba(70, 135, 175, 0.5)',
+          }}
+        >
+          <p 
+            className="text-xs sm:text-sm"
+            style={{
+              color: 'rgb(30, 120, 150)',
+            }}
+          >
             Selected: Click two adjacent cells to place
           </p>
         </div>

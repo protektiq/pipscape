@@ -58,14 +58,19 @@ const Board = ({
     return getPlacementForCellFromMap(row, col, placementLookup);
   }, [placementLookup]);
 
+  // Gap between cells
+  const cellGap = 1; // 1px gap between cells
+  
   // Calculate responsive cell size (must be before useDragHandling)
   const cellSize = useMemo(() => {
     // Base size, but make it responsive
-    const baseSize = 60;
-    const maxWidth = 800; // Max container width
-    const calculatedWidth = bounds.width * baseSize;
+    const baseSize = 90;
+    const maxWidth = 1400; // Max container width
+    // Account for gaps in total width calculation
+    const calculatedWidth = bounds.width * baseSize + (bounds.width - 1) * cellGap;
     if (calculatedWidth > maxWidth) {
-      return Math.floor(maxWidth / bounds.width);
+      // Calculate cell size accounting for gaps
+      return Math.floor((maxWidth - (bounds.width - 1) * cellGap) / bounds.width);
     }
     return baseSize;
   }, [bounds.width]);
@@ -74,6 +79,7 @@ const Board = ({
   const { dragState, boardRef, handleDragStart } = useDragHandling({
     bounds,
     cellSize,
+    cellGap,
     cellMap,
     getPlacement,
     onMovePlacement,
@@ -122,8 +128,9 @@ const Board = ({
     onCellClick(row, col);
   }, [dragState.isDragging, onCellClick]);
   
-  const containerWidth = bounds.width * cellSize;
-  const containerHeight = bounds.height * cellSize;
+  // Container size accounting for gaps between cells
+  const containerWidth = bounds.width * cellSize + (bounds.width - 1) * cellGap;
+  const containerHeight = bounds.height * cellSize + (bounds.height - 1) * cellGap;
   
   // Helper to check if a cell is on the outer edge of the puzzle shape
   const isOuterEdge = useCallback((row: number, col: number, side: 'top' | 'right' | 'bottom' | 'left'): boolean => {
@@ -148,7 +155,7 @@ const Board = ({
 
   return (
     <div className="w-full max-w-4xl mx-auto">
-      <div className="bg-white rounded-lg shadow-md p-2 sm:p-4 overflow-visible">
+      <div className="frosted-glass rounded-2xl shadow-card p-3 sm:p-6 overflow-visible">
         <div 
           className="relative mx-auto"
           style={{ 
@@ -159,15 +166,13 @@ const Board = ({
           }} 
           ref={boardRef}
         >
-            {/* Background tan/beige squares layer - separate layer like NYT, extends beyond colored regions */}
+            {/* Frosted glass background cells - more visible */}
             {puzzle.cells.map(cell => {
               const { row, col } = cell;
               const relativeRow = row - bounds.minRow;
               const relativeCol = col - bounds.minCol;
-              const padding = cellSize * 0.10; // Extend tan squares 10% beyond colored regions
-              const left = relativeCol * cellSize - padding;
-              const top = relativeRow * cellSize - padding;
-              const size = cellSize + (padding * 2); // Make tan squares larger
+              const left = relativeCol * (cellSize + cellGap);
+              const top = relativeRow * (cellSize + cellGap);
               
               return (
                 <div
@@ -176,9 +181,9 @@ const Board = ({
                   style={{
                     left: `${left}px`,
                     top: `${top}px`,
-                    width: `${size}px`,
-                    height: `${size}px`,
-                    backgroundColor: '#e8dcc6', // beige/tan color - slightly darker for visibility
+                    width: `${cellSize}px`,
+                    height: `${cellSize}px`,
+                    backgroundColor: 'rgba(255, 255, 255, 0.8)',
                     borderRadius: getBorderRadius(row, col),
                     zIndex: 0,
                   }}
@@ -193,6 +198,7 @@ const Board = ({
                 region={region}
                 puzzle={puzzle}
                 allRegions={puzzle.regions}
+                cellGap={cellGap}
               />
             ))}
 
@@ -210,22 +216,26 @@ const Board = ({
                     placement &&
                     placement.dominoId === dragState.draggedPlacement.dominoId;
                   
-                  // Check if this is the drop target
+                  // Check if this is the drop target (with snap-to-grid)
                   const isDropTarget = dragState.isDragging && 
                     dragState.currentRow === row && 
                     dragState.currentCol === col &&
                     !isDragged;
+                  
+                  // Check if this is a valid drop location (for highlighting)
+                  // Note: Valid drop logic would require checking placement validity
+                  // For now, we'll use isDropTarget for visual feedback
                   
                   // Check if this cell can be dragged
                   const isDraggable = placement !== undefined;
 
                   const cellId = `cell-${row}-${col}`;
                   
-                  // Calculate absolute position relative to bounding box
+                  // Calculate absolute position relative to bounding box (accounting for gaps)
                   const relativeRow = row - bounds.minRow;
                   const relativeCol = col - bounds.minCol;
-                  const left = relativeCol * cellSize;
-                  const top = relativeRow * cellSize;
+                  const left = relativeCol * (cellSize + cellGap);
+                  const top = relativeRow * (cellSize + cellGap);
 
                   return (
                     <div
@@ -245,31 +255,28 @@ const Board = ({
                         className={`
                           w-full h-full
                           relative
-                          ${isInvalid ? 'bg-red-100' : ''}
-                          ${isHighlighted ? 'bg-yellow-200 ring-2 ring-yellow-400' : ''}
-                          ${isDropTarget ? 'bg-blue-100 ring-2 ring-blue-400' : ''}
-                          ${isClickable && placementMode !== 'select-domino' ? 'cursor-pointer hover:bg-gray-50 active:bg-gray-100 touch-manipulation' : ''}
+                          ${isInvalid ? 'bg-red-100/50' : ''}
+                          ${isHighlighted ? 'bg-yellow-200/60 ring-2 ring-yellow-400/50' : ''}
+                          ${isDropTarget ? 'bg-blue-100/60 ring-2 ring-blue-400/50 shadow-lg' : ''}
+                          ${isClickable && placementMode !== 'select-domino' ? 'cursor-pointer hover:bg-white/20 active:bg-white/30 touch-manipulation' : ''}
                           ${isDraggable ? 'cursor-grab active:cursor-grabbing' : ''}
                           ${isDragged ? 'opacity-50' : ''}
                           flex items-center justify-center
-                          transition-colors
+                          transition-all duration-200
                           z-10
                         `}
                         style={{
-                          backgroundColor: 'transparent', // Transparent so tan squares and colored regions show through
+                          backgroundColor: 'transparent',
                         }}
                       >
-                      {/* Inner lighter tan square to show cell boundaries */}
+                      {/* Soft 1px inset lines for cell boundaries */}
                       {!isInvalid && !isHighlighted && !isDropTarget && (
                         <div
-                          className="absolute pointer-events-none"
+                          className="absolute pointer-events-none inset-0"
                           style={{
-                            left: '2px',
-                            top: '2px',
-                            right: '2px',
-                            bottom: '2px',
-                            backgroundColor: '#f5f0e6', // Lighter tan for inner square
-                            borderRadius: '2px',
+                            border: '1px solid rgba(229, 231, 235, 0.5)',
+                            borderRadius: getBorderRadius(row, col),
+                            boxShadow: 'inset 0 0 0 1px rgba(0, 0, 0, 0.03)',
                             zIndex: 1,
                           }}
                         />
@@ -311,17 +318,17 @@ const Board = ({
                 })}
 
             {/* Domino overlay layer */}
-            {puzzle.placements.map(placement => {
+            {puzzle.placements.map((placement, index) => {
                 const domino = getDominoForPlacement(placement.dominoId, puzzle.availableDominoes);
                 if (!domino) return null;
 
                 const { row, col, orientation } = placement;
                 
-                // Calculate absolute position for domino
+                // Calculate absolute position for domino (accounting for gaps)
                 const relativeRow = row - bounds.minRow;
                 const relativeCol = col - bounds.minCol;
-                const left = relativeCol * cellSize;
-                const top = relativeRow * cellSize;
+                const left = relativeCol * (cellSize + cellGap);
+                const top = relativeRow * (cellSize + cellGap);
 
                 const areaStyles: React.CSSProperties =
                   orientation === 'horizontal'
@@ -329,15 +336,21 @@ const Board = ({
                         position: 'absolute',
                         left: `${left}px`,
                         top: `${top}px`,
-                        width: `${cellSize * 2}px`,
+                        width: `${cellSize * 2 + cellGap}px`,
                         height: `${cellSize}px`,
+                        // Smooth animation for solve
+                        transition: 'all 600ms cubic-bezier(0.4, 0, 0.2, 1)',
+                        transitionDelay: `${index * 50}ms`, // Stagger animations
                       }
                     : {
                         position: 'absolute',
                         left: `${left}px`,
                         top: `${top}px`,
                         width: `${cellSize}px`,
-                        height: `${cellSize * 2}px`,
+                        height: `${cellSize * 2 + cellGap}px`,
+                        // Smooth animation for solve
+                        transition: 'all 600ms cubic-bezier(0.4, 0, 0.2, 1)',
+                        transitionDelay: `${index * 50}ms`, // Stagger animations
                       };
 
                 // Check if this placement is being dragged

@@ -13,6 +13,7 @@ interface DragState {
 interface UseDragHandlingOptions {
   bounds: { minRow: number; maxRow: number; minCol: number; maxCol: number };
   cellSize: number;
+  cellGap?: number;
   cellMap: Map<string, unknown>;
   getPlacement: (row: number, col: number) => Placement | undefined;
   onMovePlacement: (fromRow: number, fromCol: number, toRow: number, toCol: number) => void;
@@ -21,6 +22,7 @@ interface UseDragHandlingOptions {
 export const useDragHandling = ({
   bounds,
   cellSize,
+  cellGap = 0,
   cellMap,
   getPlacement,
   onMovePlacement,
@@ -45,9 +47,10 @@ export const useDragHandling = ({
       const relativeX = clientX - rect.left;
       const relativeY = clientY - rect.top;
 
-      // Calculate which cell the coordinates fall into
-      const relativeCol = Math.floor(relativeX / cellSize);
-      const relativeRow = Math.floor(relativeY / cellSize);
+      // Calculate which cell the coordinates fall into (accounting for gaps)
+      const cellWithGap = cellSize + cellGap;
+      const relativeCol = Math.floor(relativeX / cellWithGap);
+      const relativeRow = Math.floor(relativeY / cellWithGap);
 
       // Convert back to absolute coordinates
       const col = relativeCol + bounds.minCol;
@@ -61,7 +64,7 @@ export const useDragHandling = ({
 
       return null;
     },
-    [bounds, cellSize, cellMap]
+    [bounds, cellSize, cellGap, cellMap]
   );
 
   const handleDragStart = useCallback(

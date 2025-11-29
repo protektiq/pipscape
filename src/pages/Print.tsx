@@ -69,7 +69,16 @@ const Print = () => {
           <p className="text-gray-700 mb-6">{error}</p>
           <button
             onClick={handleBack}
-            className="px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-semibold transition-colors touch-manipulation focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            className="px-6 py-3 rounded-lg font-semibold transition-colors touch-manipulation focus:outline-none focus:ring-2 focus:ring-offset-2 text-white"
+            style={{
+              backgroundColor: 'rgb(125, 155, 125)', // sage
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = 'rgb(145, 175, 145)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'rgb(125, 155, 125)';
+            }}
             aria-label="Go back"
           >
             Go Back
@@ -93,21 +102,48 @@ const Print = () => {
       <div className="mb-6 print:hidden flex gap-4 fixed top-4 right-4 z-50">
         <button
           onClick={handlePrint}
-          className="px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-semibold transition-colors touch-manipulation focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+          className="px-6 py-3 rounded-lg font-semibold transition-colors touch-manipulation focus:outline-none focus:ring-2 focus:ring-offset-2 text-white"
+          style={{
+            backgroundColor: 'rgb(110, 160, 180)', // sky
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = 'rgb(130, 180, 200)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = 'rgb(110, 160, 180)';
+          }}
           aria-label="Print puzzle"
         >
           Print Puzzle
         </button>
         <button
           onClick={handleBack}
-          className="px-6 py-3 bg-gray-200 hover:bg-gray-300 rounded-lg font-semibold transition-colors touch-manipulation focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2"
+          className="px-6 py-3 rounded-lg font-semibold transition-colors touch-manipulation focus:outline-none focus:ring-2 focus:ring-offset-2 text-white"
+          style={{
+            backgroundColor: 'rgb(125, 155, 125)', // sage
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = 'rgb(145, 175, 145)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = 'rgb(125, 155, 125)';
+          }}
           aria-label="Go back"
         >
           Back
         </button>
         <button
           onClick={handleGoHome}
-          className="px-6 py-3 bg-indigo-500 hover:bg-indigo-600 active:bg-indigo-700 text-white rounded-lg font-semibold transition-colors touch-manipulation focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+          className="px-6 py-3 rounded-lg font-semibold transition-colors touch-manipulation focus:outline-none focus:ring-2 focus:ring-offset-2 text-white"
+          style={{
+            backgroundColor: 'rgb(145, 145, 205)', // periwinkle
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = 'rgb(165, 165, 225)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = 'rgb(145, 145, 205)';
+          }}
           aria-label="Go to homepage"
         >
           Home

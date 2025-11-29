@@ -56,7 +56,20 @@ const DominoSide = ({ value }: { value: number }) => {
       {Array.from({ length: 9 }).map((_, i) => (
         <div key={i} className="flex items-center justify-center min-w-0 min-h-0">
           {positions.includes(i) && (
-            <div className="w-2 h-2 rounded-full bg-slate-900 flex-shrink-0" />
+            <div 
+              className="rounded-full flex-shrink-0 relative"
+              style={{
+                width: 'clamp(0.375rem, 2vw, 0.5rem)',
+                height: 'clamp(0.375rem, 2vw, 0.5rem)',
+                backgroundColor: 'rgb(15, 23, 42)', // slate-900 with higher contrast
+                // Embossed look with shadows
+                boxShadow: `
+                  inset 0 1px 2px rgba(255, 255, 255, 0.3),
+                  inset 0 -1px 2px rgba(0, 0, 0, 0.2),
+                  0 1px 2px rgba(0, 0, 0, 0.1)
+                `,
+              }}
+            />
           )}
         </div>
       ))}
@@ -102,8 +115,10 @@ const DominoTile = ({
         flexDirection,
         baseSizeClasses,
         "bg-gradient-to-b from-slate-50 to-slate-100",
-        "border border-slate-300 shadow-sm shadow-[inset_0_0_0_1px_rgba(148,163,184,0.35)]",
-        "transition-transform duration-150",
+        "border border-slate-300/80",
+        // Enhanced shadows: outer shadow + inner shadow for depth
+        "shadow-[0_2px_8px_rgba(0,0,0,0.1),inset_0_2px_4px_rgba(0,0,0,0.06)]",
+        "transition-all duration-200",
         stateClasses,
         className
       )}

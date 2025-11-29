@@ -147,11 +147,32 @@ const Play = () => {
   // Show error state if generation failed completely
   if (generationError && !isGenerating) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+      <div 
+        className="min-h-screen flex items-center justify-center p-4"
+        style={{
+          background: 'linear-gradient(to bottom right, rgba(176, 224, 230, 0.3), rgba(140, 120, 175, 0.3))',
+        }}
+      >
         <div className="max-w-md w-full text-center">
-          <div className="bg-red-100 border border-red-300 rounded-lg p-6 mb-4">
-            <h2 className="text-xl font-semibold text-red-800 mb-2">Generation Failed</h2>
-            <p className="text-red-700 mb-4">{generationError}</p>
+          <div 
+            className="rounded-lg p-6 mb-4"
+            style={{
+              backgroundColor: 'rgba(255, 130, 150, 0.6)', // rose
+              border: '1px solid rgba(255, 100, 130, 0.5)',
+            }}
+          >
+            <h2 
+              className="text-xl font-semibold mb-2"
+              style={{ color: 'rgb(180, 80, 100)' }}
+            >
+              Generation Failed
+            </h2>
+            <p 
+              className="mb-4"
+              style={{ color: 'rgb(180, 80, 100)' }}
+            >
+              {generationError}
+            </p>
             <div className="flex gap-3 justify-center">
               <button
                 onClick={() => {
@@ -159,7 +180,16 @@ const Play = () => {
                   const difficulty = currentPuzzle?.difficulty || 'medium';
                   void generatePuzzle(difficulty);
                 }}
-                className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium transition-colors"
+                className="px-4 py-2 rounded-lg font-medium transition-colors text-white"
+                style={{
+                  backgroundColor: 'rgb(110, 160, 180)', // sky
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = 'rgb(130, 180, 200)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'rgb(110, 160, 180)';
+                }}
               >
                 Try Again
               </button>
@@ -168,7 +198,16 @@ const Play = () => {
                   clearGenerationError();
                   navigate('/');
                 }}
-                className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg font-medium transition-colors"
+                className="px-4 py-2 rounded-lg font-medium transition-colors text-white"
+                style={{
+                  backgroundColor: 'rgb(125, 155, 125)', // sage
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = 'rgb(145, 175, 145)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'rgb(125, 155, 125)';
+                }}
               >
                 Go Home
               </button>
@@ -181,19 +220,38 @@ const Play = () => {
 
   if (!currentPuzzle || isGenerating) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+      <div 
+        className="min-h-screen flex items-center justify-center p-4"
+        style={{
+          background: 'linear-gradient(to bottom right, rgba(176, 224, 230, 0.3), rgba(140, 120, 175, 0.3))',
+        }}
+      >
         <div className="text-center max-w-md">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
-          <p className="text-gray-600 text-lg font-medium">Loading puzzle...</p>
-          <p className="text-gray-500 text-sm mt-2">Generating puzzle in background</p>
-          <p className="text-gray-400 text-xs mt-4">
+          <div 
+            className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 mb-4"
+            style={{
+              borderColor: 'rgb(110, 160, 180)', // sky
+            }}
+          ></div>
+          <p className="text-lg font-medium" style={{ color: 'rgb(30, 120, 150)' }}>Loading puzzle...</p>
+          <p className="text-sm mt-2" style={{ color: 'rgb(30, 120, 150)' }}>Generating puzzle in background</p>
+          <p className="text-xs mt-4" style={{ color: 'rgb(30, 120, 150)' }}>
             This should only take a moment. If it takes longer, please try again.
           </p>
           <button
             onClick={() => {
               navigate('/');
             }}
-            className="mt-6 px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg font-medium transition-colors text-sm"
+            className="mt-6 px-4 py-2 rounded-lg font-medium transition-colors text-sm text-white"
+            style={{
+              backgroundColor: 'rgb(125, 155, 125)', // sage
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = 'rgb(145, 175, 145)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'rgb(125, 155, 125)';
+            }}
           >
             Cancel
           </button>
@@ -203,7 +261,12 @@ const Play = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-2 sm:p-4">
+    <div 
+      className="min-h-screen p-2 sm:p-4"
+      style={{
+        background: 'linear-gradient(to bottom right, rgba(176, 224, 230, 0.2), rgba(140, 120, 175, 0.2))',
+      }}
+    >
       <div className="max-w-7xl mx-auto">
         <TopBar
           puzzle={currentPuzzle}

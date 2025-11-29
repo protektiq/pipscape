@@ -2,7 +2,8 @@ import { v4 as uuidv4 } from 'uuid';
 import type { Puzzle, Region, Cell, Domino, Placement } from '../types/puzzle';
 import { RuleType } from '../types/puzzle';
 import { validatePuzzle } from './validator';
-import { getRandomTemplate, markTemplateFailed, type ShapeTemplate } from './templates';
+import { getRandomTemplate } from '../templates/loader';
+import type { ShapeTemplate } from '../templates/types';
 
 // Type definitions for test environment globals
 interface TestEnvironmentGlobals {
@@ -485,6 +486,10 @@ const generateSimpleFallbackPuzzle = (difficulty: 'easy' | 'medium' | 'hard', se
     availableDominoes: solution.usedDominoes,
     placements: [],
     solution: solution.placements,
+    shapeTemplate: {
+      id: 'fallback-template',
+      difficulty,
+    },
     createdAt: Date.now(),
   };
 };
@@ -523,7 +528,9 @@ export const generatePuzzle = (
   const puzzleId = uuidv4();
 
   // Step 1: Select a random template for the difficulty
+  console.log(`[generatePuzzle] Selecting template for difficulty: ${difficulty}, seed: ${workingSeed}`);
   const template = getRandomTemplate(difficulty, random);
+  console.log(`[generatePuzzle] Selected template: ${template.id}, difficulty: ${template.difficulty}, cells: ${template.cells.length}, regions: ${template.regions.length}`);
   
   // Step 2: Convert template cells to Cell[] format
   const cells: Cell[] = template.cells.map(c => ({
@@ -536,7 +543,8 @@ export const generatePuzzle = (
   // This should never happen now that we filter templates, but keep as safety check
   if (cells.length % 2 !== 0) {
     // Odd number of cells - impossible to tile with dominoes
-    markTemplateFailed(template, difficulty);
+    // Note: markTemplateFailed expects old format, but we can skip for now during migration
+    // markTemplateFailed(template, difficulty);
     // Retry with different template
     if (retryCount < 2) {
       const newSeed = `${originalPuzzleSeed || uuidv4()}-odd-cells-retry-${retryCount}`;
@@ -727,6 +735,10 @@ export const generatePuzzle = (
     ...tempPuzzle,
     placements: [], // Remove solution placements
     solution: placements, // Store validated solution for solve button
+    shapeTemplate: { // Store template reference
+      id: template.id,
+      difficulty: template.difficulty,
+    },
   };
 };
 

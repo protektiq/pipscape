@@ -52,18 +52,25 @@ export type Placement = {
   fixed?: boolean;  // For future hints (Phase 0: always false)
 };
 
+// Shape template reference (imported from templates/types.ts to avoid circular dependency)
+export type ShapeTemplateRef = {
+  id: string;
+  difficulty: 'easy' | 'medium' | 'hard';
+};
+
 // Complete puzzle state
 export type Puzzle = {
   id: string;
   seed: string;
   difficulty: 'easy' | 'medium' | 'hard';
-  rows: number;  // Bounding box height
-  cols: number;  // Bounding box width
+  rows: number;  // Bounding box height (explicitly set from template)
+  cols: number;  // Bounding box width (explicitly set from template)
   cells: Cell[]; // Sparse list of active cells (only cells that exist)
   regions: Region[];
   availableDominoes: Domino[];
   placements: Placement[];
   solution?: Placement[]; // Original solution placements (stored for solve button)
+  shapeTemplate?: ShapeTemplateRef; // Reference to the template used to generate this puzzle
   createdAt: number;
 };
 

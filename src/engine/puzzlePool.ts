@@ -124,11 +124,14 @@ class PuzzlePool {
     }
 
     const poolKey = this.getPoolKey(difficulty);
+    console.log(`[PuzzlePool.getPuzzle] Requested difficulty: ${difficulty}, poolKey: ${poolKey}`);
     const pool = this.pools.get(poolKey) || [];
+    console.log(`[PuzzlePool.getPuzzle] Pool size for ${poolKey}: ${pool.length}`);
 
     // If pool has puzzles, return one and refill in background
     if (pool.length > 0) {
       const puzzle = pool.pop()!;
+      console.log(`[PuzzlePool.getPuzzle] Returning puzzle from pool: id=${puzzle.id}, difficulty=${puzzle.difficulty}, requested=${difficulty}`);
       this.pools.set(poolKey, pool);
       
       // Refill pool in background if it's getting low
@@ -141,20 +144,21 @@ class PuzzlePool {
 
     // Pool is empty - generate INSTANTLY and SYNCHRONOUSLY
     // Wrap in Promise.resolve to make it async-compatible but execute immediately
-    console.log(`[PuzzlePool] Generating puzzle for ${difficulty} synchronously...`);
+    console.log(`[PuzzlePool] Pool empty for ${difficulty}, generating puzzle synchronously...`);
     return Promise.resolve().then(() => {
       try {
         const startTime = Date.now();
+        console.log(`[PuzzlePool] Calling generatePuzzle(${difficulty})...`);
         const puzzle = generatePuzzle(difficulty);
         const generationTime = Date.now() - startTime;
-        console.log(`[PuzzlePool] Puzzle generated in ${generationTime}ms`);
+        console.log(`[PuzzlePool] Puzzle generated in ${generationTime}ms: id=${puzzle.id}, difficulty=${puzzle.difficulty}, requested=${difficulty}`);
         
         if (!puzzle || !puzzle.solution) {
           console.error(`[PuzzlePool] Generated puzzle has no solution!`, puzzle);
           throw new Error('Generated puzzle has no solution');
         }
         
-        console.log(`[PuzzlePool] Puzzle generated successfully with ${puzzle.solution.length} placements`);
+        console.log(`[PuzzlePool] Puzzle generated successfully with ${puzzle.solution.length} placements, difficulty=${puzzle.difficulty}`);
         solutionCache.set(puzzle.seed, puzzle.solution);
         // Don't refill pool during initial request - it can cause issues
         // Pool will be refilled later in background if needed

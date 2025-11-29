@@ -1,16 +1,20 @@
 import { memo } from 'react';
 import * as React from 'react';
 import type { Region, Puzzle } from '../types/puzzle';
-import { getRegionColor, getRegionEdgeInfo, isOuterCorner, getBottomLeftCell } from '../engine/regionUtils';
-import { formatRuleLabel } from '../engine/ruleUtils';
+import { getRegionEdgeInfo, isOuterCorner, getBottomLeftCell } from '../engine/regionUtils';
+import { getTemplateById } from '../templates/loader';
+import { getColorForRegion } from '../lib/design/colors';
+import RegionBadge from './RegionBadge';
+import type { RegionColor } from '../templates/types';
 
 interface RegionProps {
   region: Region;
   puzzle: Puzzle;
   allRegions: Region[];
+  cellGap?: number;
 }
 
-const RegionComponent = ({ region, puzzle, allRegions }: RegionProps) => {
+const RegionComponent = ({ region, puzzle, allRegions, cellGap = 0 }: RegionProps) => {
   // Calculate bounding box from all puzzle cells
   const bounds = React.useMemo(() => {
     if (puzzle.cells.length === 0) {
@@ -28,8 +32,8 @@ const RegionComponent = ({ region, puzzle, allRegions }: RegionProps) => {
   
   // Calculate responsive cell size (match Board component)
   const cellSize = React.useMemo(() => {
-    const baseSize = 60;
-    const maxWidth = 800;
+    const baseSize = 90;
+    const maxWidth = 1400;
     const width = bounds.maxCol - bounds.minCol + 1;
     const calculatedWidth = width * baseSize;
     if (calculatedWidth > maxWidth) {
@@ -37,9 +41,48 @@ const RegionComponent = ({ region, puzzle, allRegions }: RegionProps) => {
     }
     return baseSize;
   }, [bounds]);
-  const color = getRegionColor(region.id);
-  const label = formatRuleLabel(region.rule);
+  // Get color from template if available, otherwise use fallback
+  const templateColor = React.useMemo(() => {
+    if (puzzle.shapeTemplate) {
+      const template = getTemplateById(puzzle.shapeTemplate.id);
+      if (template?.regionColors?.[region.id]) {
+        return template.regionColors[region.id];
+      }
+    }
+    // Fallback to new color system from colors.ts (has text color)
+    const fallbackColor = getColorForRegion(region.id);
+    return {
+      name: fallbackColor.name,
+      bg: fallbackColor.bg,
+      border: fallbackColor.border,
+      glow: fallbackColor.glow,
+      text: fallbackColor.text,
+    } as RegionColor;
+  }, [puzzle.shapeTemplate, region.id]);
+
   const bottomLeftCell = getBottomLeftCell(region);
+  
+  // Get rule anchor position (explicit from template or calculated)
+  const ruleAnchorPosition = React.useMemo(() => {
+    if (puzzle.shapeTemplate) {
+      const template = getTemplateById(puzzle.shapeTemplate.id);
+      if (template?.ruleAnchors?.[region.id]) {
+        const anchor = template.ruleAnchors[region.id];
+        return {
+          top: (anchor.row - bounds.minRow + 0.5) * (cellSize + cellGap),
+          left: (anchor.col - bounds.minCol + 0.5) * (cellSize + cellGap),
+        };
+      }
+    }
+    // Fallback to calculated position (bottom-left)
+    if (bottomLeftCell) {
+      return {
+        top: ((bottomLeftCell.row - bounds.minRow + 1) * (cellSize + cellGap)),
+        left: ((bottomLeftCell.col - bounds.minCol + 0.5) * (cellSize + cellGap)),
+      };
+    }
+    return null;
+  }, [puzzle.shapeTemplate, region.id, bottomLeftCell, bounds, cellSize]);
 
   return (
     <>
@@ -57,12 +100,13 @@ const RegionComponent = ({ region, puzzle, allRegions }: RegionProps) => {
               key={`bg-${cell.row}-${cell.col}`}
               style={{
                 position: 'absolute',
-                top: `${relativeRow * cellSize}px`,
-                left: `${relativeCol * cellSize}px`,
+                top: `${relativeRow * (cellSize + cellGap)}px`,
+                left: `${relativeCol * (cellSize + cellGap)}px`,
                 width: `${cellSize}px`,
                 height: `${cellSize}px`,
-                backgroundColor: color.bg,
-                opacity: 0.12,
+                backgroundColor: templateColor.bg,
+                opacity: 0.85,
+                borderRadius: '0.5rem', // More rounded edges
               }}
             />
           );
@@ -85,56 +129,49 @@ const RegionComponent = ({ region, puzzle, allRegions }: RegionProps) => {
           
           const relativeRow = cell.row - bounds.minRow;
           const relativeCol = cell.col - bounds.minCol;
-          const borderWidth = '2px';
+          const borderWidth = '1.5px';
           const isOuterTL = isOuterCorner(cell.row, cell.col, region.id, allRegions, 'tl', puzzle);
           const isOuterTR = isOuterCorner(cell.row, cell.col, region.id, allRegions, 'tr', puzzle);
           const isOuterBL = isOuterCorner(cell.row, cell.col, region.id, allRegions, 'bl', puzzle);
           const isOuterBR = isOuterCorner(cell.row, cell.col, region.id, allRegions, 'br', puzzle);
           
+          // More rounded corners
+          const borderRadius = `${isOuterTL ? '0.5rem' : '0'} ${isOuterTR ? '0.5rem' : '0'} ${isOuterBR ? '0.5rem' : '0'} ${isOuterBL ? '0.5rem' : '0'}`;
+          
           return (
             <div
               key={`border-${cell.row}-${cell.col}`}
-              className="border-dashed"
+              className="border-dashed print:border-solid"
               style={{
                 position: 'absolute',
-                top: `${relativeRow * cellSize}px`,
-                left: `${relativeCol * cellSize}px`,
+                top: `${relativeRow * (cellSize + cellGap)}px`,
+                left: `${relativeCol * (cellSize + cellGap)}px`,
                 width: `${cellSize}px`,
                 height: `${cellSize}px`,
                 borderTopWidth: edgeInfo.top ? borderWidth : '0',
                 borderRightWidth: edgeInfo.right ? borderWidth : '0',
                 borderBottomWidth: edgeInfo.bottom ? borderWidth : '0',
                 borderLeftWidth: edgeInfo.left ? borderWidth : '0',
-                borderColor: color.border,
-                borderRadius: `${isOuterTL ? '0.375rem' : '0'} ${isOuterTR ? '0.375rem' : '0'} ${isOuterBR ? '0.375rem' : '0'} ${isOuterBL ? '0.375rem' : '0'}`,
+                borderColor: templateColor.border,
+                borderRadius,
+                // Glow effect - remove for print
+                boxShadow: edgeInfo.top || edgeInfo.right || edgeInfo.bottom || edgeInfo.left
+                  ? `0 0 8px ${templateColor.glow}`
+                  : 'none',
               }}
             />
           );
         })}
       </div>
 
-      {/* Rule badge */}
-      {bottomLeftCell && (
-        <div
-          key={`badge-${region.id}`}
-          className="absolute pointer-events-none z-20"
-          style={{
-            top: `${((bottomLeftCell.row - bounds.minRow + 1) * cellSize)}px`,
-            left: `${((bottomLeftCell.col - bounds.minCol) * cellSize)}px`,
-            transform: 'translate(-50%, -50%)',
-          }}
-        >
-          <div 
-            className="w-5 h-5 sm:w-6 sm:h-6 rounded-md text-white transform rotate-45 flex items-center justify-center shadow-md"
-            style={{
-              backgroundColor: color.bg,
-            }}
-          >
-            <span className="transform -rotate-45 text-[10px] sm:text-xs font-bold">
-              {label}
-            </span>
-          </div>
-        </div>
+      {/* Rule badge - capsule style */}
+      {ruleAnchorPosition && (
+        <RegionBadge
+          rule={region.rule}
+          color={templateColor}
+          position={ruleAnchorPosition}
+          cellSize={cellSize}
+        />
       )}
     </>
   );

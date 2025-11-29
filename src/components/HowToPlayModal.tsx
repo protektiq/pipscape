@@ -143,8 +143,19 @@ const HowToPlayModal = ({ isOpen, onClose }: HowToPlayModalProps) => {
               </ol>
             </div>
 
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <p className="text-sm text-blue-800">
+            <div 
+              className="rounded-lg p-4"
+              style={{
+                backgroundColor: 'rgba(110, 160, 180, 0.3)', // sky
+                border: '1px solid rgba(70, 135, 175, 0.4)',
+              }}
+            >
+              <p 
+                className="text-sm"
+                style={{
+                  color: 'rgb(30, 120, 150)',
+                }}
+              >
                 <strong>Tip:</strong> Look at the region rules and constraints. Each colored region has a rule badge showing one of four constraint types: sum ≥ value (sum must be greater than or equal to), sum ≤ value (sum must be less than or equal to), all values equal (all domino values in the region must match), or all values different (all domino values in the region must be unique).
               </p>
             </div>
@@ -156,7 +167,16 @@ const HowToPlayModal = ({ isOpen, onClose }: HowToPlayModalProps) => {
           <button
             onClick={onClose}
             onKeyDown={handleKeyDown}
-            className="px-6 py-2 bg-blue-500 hover:bg-blue-600 active:bg-blue-700 text-white rounded-lg font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 touch-manipulation"
+            className="px-6 py-2 rounded-lg font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 touch-manipulation text-white"
+            style={{
+              backgroundColor: 'rgb(110, 160, 180)', // sky
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = 'rgb(130, 180, 200)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'rgb(110, 160, 180)';
+            }}
             aria-label="Close modal"
             tabIndex={0}
           >

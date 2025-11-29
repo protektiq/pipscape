@@ -1,19 +1,14 @@
 import { useMemo } from 'react';
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import type { Puzzle, CellPosition, ValidationResult, Placement } from '../types/puzzle';
 import { puzzlePool } from '../engine/puzzlePool';
 import { solutionCache } from '../engine/solutionCache';
-import { validatePuzzle as validatePuzzleEngine } from '../engine/validator';
-import { 
-  handleFirstCellClick, 
-  addPlacementToPuzzle, 
-  removePlacementFromPuzzle,
-  isDominoPlaced,
-  rotatePlacementInPuzzle,
-  movePlacementInPuzzle,
-  createPlacementWithOrientation,
-} from '../engine/placementEngine';
-import { getPlacementCells, getPlacementForCell } from '../engine/placementUtils';
+import { gameController } from '../lib/game/GameController';
+import { placementController } from '../lib/game/placementController';
+import { validationController } from '../lib/game/validationController';
+import { handleFirstCellClick } from '../engine/placementEngine';
+import { getPlacementCells } from '../engine/placementUtils';
 
 type PlacementMode = 'select-domino' | 'place-first' | 'place-second';
 
@@ -39,6 +34,8 @@ interface PuzzleState {
   removePlacement: (row: number, col: number) => void;
   rotatePlacement: (row: number, col: number) => void;
   movePlacement: (fromRow: number, fromCol: number, toRow: number, toCol: number) => void;
+  undo: () => void;
+  reset: () => void;
   clearSelection: () => void;
   validateSolution: () => void;
   setPlacements: (placements: Placement[]) => void;
@@ -48,16 +45,18 @@ interface PuzzleState {
   clearGenerationError: () => void;
 }
 
-export const usePuzzleStore = create<PuzzleState>((set, get) => ({
-  currentPuzzle: null,
-  selectedDominoId: null,
-  selectedOrientation: 'horizontal',
-  placementMode: 'select-domino',
-  firstCell: null,
-  validationResult: null,
-  invalidPlacementMessage: null,
-  isGenerating: false,
-  generationError: null,
+export const usePuzzleStore = create<PuzzleState>()(
+  persist(
+    (set, get) => ({
+      currentPuzzle: null,
+      selectedDominoId: null,
+      selectedOrientation: 'horizontal',
+      placementMode: 'select-domino',
+      firstCell: null,
+      validationResult: null,
+      invalidPlacementMessage: null,
+      isGenerating: false,
+      generationError: null,
 
   generatePuzzle: async (difficulty, seed) => {
     console.log(`[PuzzleStore] Starting puzzle generation for ${difficulty}`, seed ? `with seed: ${seed}` : '');
@@ -129,7 +128,7 @@ export const usePuzzleStore = create<PuzzleState>((set, get) => ({
     const state = get();
     if (state.currentPuzzle) {
       // Check if domino is already placed
-      const placed = isDominoPlaced(dominoId, state.currentPuzzle);
+      const placed = placementController.isDominoPlaced(state.currentPuzzle, dominoId);
 
       if (!placed) {
         set({
@@ -158,33 +157,27 @@ export const usePuzzleStore = create<PuzzleState>((set, get) => ({
     }
 
     // Check if domino is already placed
-    const placed = isDominoPlaced(dominoId, state.currentPuzzle);
+    const placed = placementController.isDominoPlaced(state.currentPuzzle, dominoId);
     if (placed) {
       return;
     }
 
     // Check if cell already has a placement
-    const hasPlacement = state.currentPuzzle.placements.some(p => {
-      const cells = getPlacementCells(p);
-      return cells.some(c => c.row === cell.row && c.col === cell.col);
-    });
-
-    if (hasPlacement) {
+    if (placementController.hasPlacement(state.currentPuzzle, cell.row, cell.col)) {
       return;
     }
 
-    // Create placement with selected orientation
-    const result = createPlacementWithOrientation(
+    // Use GameController to create placement
+    const result = gameController.addPlacement(
+      state.currentPuzzle,
       dominoId,
       cell,
-      state.selectedOrientation,
-      state.currentPuzzle
+      state.selectedOrientation
     );
 
-    if (result.success && result.placement) {
-      const updatedPuzzle = addPlacementToPuzzle(state.currentPuzzle, result.placement);
+    if (result.success && result.puzzle) {
       set({
-        currentPuzzle: updatedPuzzle,
+        currentPuzzle: result.puzzle,
         selectedDominoId: null,
         selectedOrientation: 'horizontal',
         placementMode: 'select-domino',
@@ -230,7 +223,7 @@ export const usePuzzleStore = create<PuzzleState>((set, get) => ({
         firstCell: result.firstCell,
         placementMode: result.mode,
       });
-    } else if (state.placementMode === 'place-second' && state.firstCell) {
+    } else     if (state.placementMode === 'place-second' && state.firstCell) {
       // Second cell clicked - use selectedOrientation to determine valid placement
       // Check if the clicked cell matches the selected orientation
       const rowDiff = cell.row - state.firstCell.row;
@@ -268,20 +261,17 @@ export const usePuzzleStore = create<PuzzleState>((set, get) => ({
         return;
       }
 
-      // Create placement using selectedOrientation
-      const result = createPlacementWithOrientation(
+      // Use GameController to create placement
+      const result = gameController.addPlacement(
+        state.currentPuzzle,
         state.selectedDominoId,
         state.firstCell,
-        state.selectedOrientation,
-        state.currentPuzzle
+        state.selectedOrientation
       );
 
-      if (result.success && result.placement) {
-        // Add placement
-        const updatedPuzzle = addPlacementToPuzzle(state.currentPuzzle, result.placement);
-
+      if (result.success && result.puzzle) {
         set({
-          currentPuzzle: updatedPuzzle,
+          currentPuzzle: result.puzzle,
           selectedDominoId: null,
           selectedOrientation: 'horizontal',
           placementMode: 'select-domino',
@@ -315,7 +305,7 @@ export const usePuzzleStore = create<PuzzleState>((set, get) => ({
       return;
     }
 
-    const updatedPuzzle = removePlacementFromPuzzle(row, col, state.currentPuzzle);
+    const updatedPuzzle = gameController.removePlacement(state.currentPuzzle, row, col);
 
     set({
       currentPuzzle: updatedPuzzle,
@@ -329,17 +319,14 @@ export const usePuzzleStore = create<PuzzleState>((set, get) => ({
       return;
     }
 
-    const placement = getPlacementForCell(row, col, state.currentPuzzle.placements);
-    if (!placement) {
-      return;
+    const result = gameController.rotate(state.currentPuzzle, row, col);
+    
+    if (result.success && result.puzzle) {
+      set({
+        currentPuzzle: result.puzzle,
+        validationResult: null,
+      });
     }
-
-    const updatedPuzzle = rotatePlacementInPuzzle(state.currentPuzzle, placement);
-
-    set({
-      currentPuzzle: updatedPuzzle,
-      validationResult: null,
-    });
   },
 
   movePlacement: (fromRow, fromCol, toRow, toCol) => {
@@ -348,15 +335,12 @@ export const usePuzzleStore = create<PuzzleState>((set, get) => ({
       return;
     }
 
-    const fromPlacement = getPlacementForCell(fromRow, fromCol, state.currentPuzzle.placements);
-    if (!fromPlacement) {
-      return;
-    }
-
-    const result = movePlacementInPuzzle(
+    const result = gameController.move(
       state.currentPuzzle,
-      fromPlacement,
-      { row: toRow, col: toCol }
+      fromRow,
+      fromCol,
+      toRow,
+      toCol
     );
 
     if (result.success && result.puzzle) {
@@ -366,6 +350,32 @@ export const usePuzzleStore = create<PuzzleState>((set, get) => ({
       });
     }
     // If move failed, silently ignore (could show error message in future)
+  },
+
+  undo: () => {
+    const state = get();
+    if (!state.currentPuzzle) {
+      return;
+    }
+
+    const updatedPuzzle = gameController.undo(state.currentPuzzle);
+    set({
+      currentPuzzle: updatedPuzzle,
+      validationResult: null,
+    });
+  },
+
+  reset: () => {
+    const state = get();
+    if (!state.currentPuzzle) {
+      return;
+    }
+
+    const updatedPuzzle = gameController.reset(state.currentPuzzle);
+    set({
+      currentPuzzle: updatedPuzzle,
+      validationResult: null,
+    });
   },
 
   clearSelection: () => {
@@ -392,7 +402,7 @@ export const usePuzzleStore = create<PuzzleState>((set, get) => ({
       return;
     }
 
-    const result = validatePuzzleEngine(state.currentPuzzle);
+    const result = validationController.validate(state.currentPuzzle);
     set({ validationResult: result });
   },
 
@@ -416,32 +426,11 @@ export const usePuzzleStore = create<PuzzleState>((set, get) => ({
       return;
     }
 
-    // Try to get solution from puzzle first, then from cache
-    let solution = state.currentPuzzle.solution;
+    // Use GameController to solve
+    const solvedPuzzle = gameController.solve(state.currentPuzzle);
     
-    if (!solution) {
-      // Solution not in puzzle, try cache
-      const cachedSolution = solutionCache.get(state.currentPuzzle.seed);
-      if (cachedSolution) {
-        solution = cachedSolution;
-        // Update puzzle with solution for future use
-        state.currentPuzzle.solution = solution;
-      }
-    }
-
-    if (!solution) {
-      // No solution available - this shouldn't happen if puzzle was generated correctly
-      console.warn('No solution available for puzzle:', state.currentPuzzle.id);
-      return;
-    }
-
-    // Simply update placements with solution - let the board render from placements
     set({
-      currentPuzzle: {
-        ...state.currentPuzzle,
-        placements: [...solution],
-        solution, // Ensure solution is stored in puzzle
-      },
+      currentPuzzle: solvedPuzzle,
       selectedDominoId: null,
       selectedOrientation: 'horizontal',
       placementMode: 'select-domino',
@@ -462,7 +451,18 @@ export const usePuzzleStore = create<PuzzleState>((set, get) => ({
       invalidPlacementMessage: null,
     });
   },
-}));
+    }),
+    {
+      name: 'pipscape-puzzle-storage',
+      // Only persist the puzzle state, not UI state like isGenerating
+      partialize: (state) => ({
+        currentPuzzle: state.currentPuzzle,
+        // Don't persist UI state that should reset on reload
+        // selectedDominoId, placementMode, etc. will reset to defaults
+      }),
+    }
+  )
+);
 
 // Optimized selectors to prevent unnecessary re-renders
 // Components should use these instead of destructuring the entire store
@@ -494,6 +494,8 @@ export const usePuzzleActions = () => {
   const removePlacement = usePuzzleStore((state) => state.removePlacement);
   const rotatePlacement = usePuzzleStore((state) => state.rotatePlacement);
   const movePlacement = usePuzzleStore((state) => state.movePlacement);
+  const undo = usePuzzleStore((state) => state.undo);
+  const reset = usePuzzleStore((state) => state.reset);
   const clearSelection = usePuzzleStore((state) => state.clearSelection);
   const validateSolution = usePuzzleStore((state) => state.validateSolution);
   const setPlacements = usePuzzleStore((state) => state.setPlacements);
@@ -512,6 +514,8 @@ export const usePuzzleActions = () => {
       removePlacement,
       rotatePlacement,
       movePlacement,
+      undo,
+      reset,
       clearSelection,
       validateSolution,
       setPlacements,
@@ -529,6 +533,8 @@ export const usePuzzleActions = () => {
       removePlacement,
       rotatePlacement,
       movePlacement,
+      undo,
+      reset,
       clearSelection,
       validateSolution,
       setPlacements,
