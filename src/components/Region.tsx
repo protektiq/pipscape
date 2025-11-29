@@ -1,3 +1,5 @@
+import { memo } from 'react';
+import * as React from 'react';
 import type { Region, Puzzle } from '../types/puzzle';
 import { getRegionColor, getRegionEdgeInfo, isOuterCorner, getBottomLeftCell } from '../engine/regionUtils';
 import { formatRuleLabel } from '../engine/ruleUtils';
@@ -9,33 +11,58 @@ interface RegionProps {
 }
 
 const RegionComponent = ({ region, puzzle, allRegions }: RegionProps) => {
-  const rows = puzzle.rows;
-  const cols = puzzle.cols;
+  // Calculate bounding box from all puzzle cells
+  const bounds = React.useMemo(() => {
+    if (puzzle.cells.length === 0) {
+      return { minRow: 0, maxRow: 0, minCol: 0, maxCol: 0 };
+    }
+    const rows = puzzle.cells.map(c => c.row);
+    const cols = puzzle.cells.map(c => c.col);
+    return {
+      minRow: Math.min(...rows),
+      maxRow: Math.max(...rows),
+      minCol: Math.min(...cols),
+      maxCol: Math.max(...cols),
+    };
+  }, [puzzle.cells]);
+  
+  // Calculate responsive cell size (match Board component)
+  const cellSize = React.useMemo(() => {
+    const baseSize = 60;
+    const maxWidth = 800;
+    const width = bounds.maxCol - bounds.minCol + 1;
+    const calculatedWidth = width * baseSize;
+    if (calculatedWidth > maxWidth) {
+      return Math.floor(maxWidth / width);
+    }
+    return baseSize;
+  }, [bounds]);
   const color = getRegionColor(region.id);
   const label = formatRuleLabel(region.rule);
   const bottomLeftCell = getBottomLeftCell(region);
 
   return (
     <>
-      {/* Region background layer */}
+      {/* Region background layer - above tan squares but below cells */}
       <div
         key={`region-bg-${region.id}`}
         className="absolute inset-0 pointer-events-none"
+        style={{ zIndex: 9 }}
       >
         {region.cells.map(cell => {
-          const cellWidth = `calc(100% / ${cols})`;
-          const cellHeight = `calc(100% / ${rows})`;
+          const relativeRow = cell.row - bounds.minRow;
+          const relativeCol = cell.col - bounds.minCol;
           return (
             <div
               key={`bg-${cell.row}-${cell.col}`}
               style={{
                 position: 'absolute',
-                top: `${(cell.row / rows) * 100}%`,
-                left: `${(cell.col / cols) * 100}%`,
-                width: cellWidth,
-                height: cellHeight,
+                top: `${relativeRow * cellSize}px`,
+                left: `${relativeCol * cellSize}px`,
+                width: `${cellSize}px`,
+                height: `${cellSize}px`,
                 backgroundColor: color.bg,
-                opacity: 0.2,
+                opacity: 0.12,
               }}
             />
           );
@@ -45,7 +72,7 @@ const RegionComponent = ({ region, puzzle, allRegions }: RegionProps) => {
       {/* Region borders layer */}
       <div
         key={`region-border-${region.id}`}
-        className="absolute inset-0 pointer-events-none"
+        className="absolute inset-0 pointer-events-none z-15"
       >
         {region.cells.map(cell => {
           const edgeInfo = getRegionEdgeInfo(
@@ -56,8 +83,8 @@ const RegionComponent = ({ region, puzzle, allRegions }: RegionProps) => {
             puzzle
           );
           
-          const cellWidth = `calc(100% / ${cols})`;
-          const cellHeight = `calc(100% / ${rows})`;
+          const relativeRow = cell.row - bounds.minRow;
+          const relativeCol = cell.col - bounds.minCol;
           const borderWidth = '2px';
           const isOuterTL = isOuterCorner(cell.row, cell.col, region.id, allRegions, 'tl', puzzle);
           const isOuterTR = isOuterCorner(cell.row, cell.col, region.id, allRegions, 'tr', puzzle);
@@ -70,10 +97,10 @@ const RegionComponent = ({ region, puzzle, allRegions }: RegionProps) => {
               className="border-dashed"
               style={{
                 position: 'absolute',
-                top: `${(cell.row / rows) * 100}%`,
-                left: `${(cell.col / cols) * 100}%`,
-                width: cellWidth,
-                height: cellHeight,
+                top: `${relativeRow * cellSize}px`,
+                left: `${relativeCol * cellSize}px`,
+                width: `${cellSize}px`,
+                height: `${cellSize}px`,
                 borderTopWidth: edgeInfo.top ? borderWidth : '0',
                 borderRightWidth: edgeInfo.right ? borderWidth : '0',
                 borderBottomWidth: edgeInfo.bottom ? borderWidth : '0',
@@ -92,8 +119,8 @@ const RegionComponent = ({ region, puzzle, allRegions }: RegionProps) => {
           key={`badge-${region.id}`}
           className="absolute pointer-events-none z-20"
           style={{
-            top: `${((bottomLeftCell.row + 1) / rows) * 100}%`,
-            left: `${(bottomLeftCell.col / cols) * 100}%`,
+            top: `${((bottomLeftCell.row - bounds.minRow + 1) * cellSize)}px`,
+            left: `${((bottomLeftCell.col - bounds.minCol) * cellSize)}px`,
             transform: 'translate(-50%, -50%)',
           }}
         >
@@ -113,5 +140,5 @@ const RegionComponent = ({ region, puzzle, allRegions }: RegionProps) => {
   );
 };
 
-export default RegionComponent;
+export default memo(RegionComponent);
 

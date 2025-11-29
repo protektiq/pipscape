@@ -1,9 +1,9 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useCallback, useMemo, memo } from 'react';
 import type { Puzzle, CellPosition, Placement, ValidationResult } from '../types/puzzle';
 import { buildCellLookup } from '../types/puzzle';
-import { getPlacementForCell } from '../engine/placementUtils';
+import { buildPlacementLookup, getPlacementForCellFromMap } from '../engine/placementUtils';
 import { getDominoForPlacement } from '../engine/dominoUtils';
-import { getRegionForCell } from '../engine/regionUtils';
+import { useDragHandling } from '../hooks/useDragHandling';
 import RegionComponent from './Region';
 import DominoTile from './DominoTile';
 import DroppableCell from './DroppableCell';
@@ -26,220 +26,165 @@ const Board = ({
   onCellClick,
   onMovePlacement,
 }: BoardProps) => {
-  const rows = puzzle.rows;
-  const cols = puzzle.cols;
-  const cellMap = buildCellLookup(puzzle);
+  // Calculate actual bounding box from cells (not the full grid)
+  const bounds = useMemo(() => {
+    if (puzzle.cells.length === 0) {
+      return { minRow: 0, maxRow: 0, minCol: 0, maxCol: 0, width: 1, height: 1 };
+    }
+    const rows = puzzle.cells.map(c => c.row);
+    const cols = puzzle.cells.map(c => c.col);
+    const minRow = Math.min(...rows);
+    const maxRow = Math.max(...rows);
+    const minCol = Math.min(...cols);
+    const maxCol = Math.max(...cols);
+    return {
+      minRow,
+      maxRow,
+      minCol,
+      maxCol,
+      width: maxCol - minCol + 1,
+      height: maxRow - minRow + 1,
+    };
+  }, [puzzle.cells]);
   
-  // Drag state
-  const [dragState, setDragState] = useState<{
-    isDragging: boolean;
-    draggedPlacement: Placement | null;
-    startRow: number;
-    startCol: number;
-    currentRow: number | null;
-    currentCol: number | null;
-  }>({
-    isDragging: false,
-    draggedPlacement: null,
-    startRow: -1,
-    startCol: -1,
-    currentRow: null,
-    currentCol: null,
+  // Memoize cell lookup map - only recalculate when puzzle.cells changes
+  const cellMap = useMemo(() => buildCellLookup(puzzle), [puzzle.cells]);
+  
+  // Memoize placement lookup map for O(1) access - only recalculate when placements change
+  const placementLookup = useMemo(() => buildPlacementLookup(puzzle.placements), [puzzle.placements]);
+
+  // Get placement covering a cell using memoized lookup map (O(1))
+  const getPlacement = useCallback((row: number, col: number): Placement | undefined => {
+    return getPlacementForCellFromMap(row, col, placementLookup);
+  }, [placementLookup]);
+
+  // Calculate responsive cell size (must be before useDragHandling)
+  const cellSize = useMemo(() => {
+    // Base size, but make it responsive
+    const baseSize = 60;
+    const maxWidth = 800; // Max container width
+    const calculatedWidth = bounds.width * baseSize;
+    if (calculatedWidth > maxWidth) {
+      return Math.floor(maxWidth / bounds.width);
+    }
+    return baseSize;
+  }, [bounds.width]);
+
+  // Use custom hook for drag handling
+  const { dragState, boardRef, handleDragStart } = useDragHandling({
+    bounds,
+    cellSize,
+    cellMap,
+    getPlacement,
+    onMovePlacement,
   });
-  
-  const boardRef = useRef<HTMLDivElement>(null);
 
-  // Get placement covering a cell
-  const getPlacement = (row: number, col: number): Placement | undefined => {
-    return getPlacementForCell(row, col, puzzle.placements);
-  };
+  // Memoize region lookup for validation
+  const regionLookup = useMemo(() => {
+    const lookup = new Map<string, string>(); // cell key -> region id
+    for (const region of puzzle.regions) {
+      for (const cell of region.cells) {
+        lookup.set(`${cell.row}-${cell.col}`, region.id);
+      }
+    }
+    return lookup;
+  }, [puzzle.regions]);
 
-  // Check if cell is invalid (part of invalid region)
-  const isCellInvalid = (row: number, col: number): boolean => {
+  // Check if cell is invalid (part of invalid region) - memoized
+  const isCellInvalid = useCallback((row: number, col: number): boolean => {
     if (!validationResult || validationResult.isValid) return false;
-    const region = getRegionForCell(row, col, puzzle.regions);
-    return region ? validationResult.invalidRegions.includes(region.id) : false;
-  };
+    const regionId = regionLookup.get(`${row}-${col}`);
+    return regionId ? validationResult.invalidRegions.includes(regionId) : false;
+  }, [validationResult, regionLookup]);
 
-  // Check if cell is highlighted (first cell in placement mode)
-  const isCellHighlighted = (row: number, col: number): boolean => {
+  // Check if cell is highlighted (first cell in placement mode) - memoized
+  const isCellHighlighted = useCallback((row: number, col: number): boolean => {
     return (
       placementMode === 'place-second' &&
       firstCell !== null &&
       firstCell.row === row &&
       firstCell.col === col
     );
-  };
+  }, [placementMode, firstCell]);
 
-  // Check if cell can be clicked for placement
-  const isCellClickable = (row: number, col: number): boolean => {
+  // Check if cell can be clicked for placement - memoized
+  const isCellClickable = useCallback((row: number, col: number): boolean => {
     if (placementMode === 'select-domino') return false;
     const placement = getPlacement(row, col);
     return !placement || placement.fixed !== true;
-  };
+  }, [placementMode, getPlacement]);
 
-  const handleCellClick = (row: number, col: number) => {
+  const handleCellClick = useCallback((row: number, col: number) => {
     // Don't trigger click if we just finished dragging
     if (dragState.isDragging) {
       return;
     }
     onCellClick(row, col);
-  };
-
-  // Convert client coordinates to grid cell coordinates
-  const getCellFromCoordinates = useCallback((clientX: number, clientY: number): { row: number; col: number } | null => {
-    if (!boardRef.current) return null;
-    
-    const rect = boardRef.current.getBoundingClientRect();
-    const relativeX = clientX - rect.left;
-    const relativeY = clientY - rect.top;
-    
-    const cellWidth = rect.width / cols;
-    const cellHeight = rect.height / rows;
-    
-    const col = Math.floor(relativeX / cellWidth);
-    const row = Math.floor(relativeY / cellHeight);
-    
-    if (row >= 0 && row < rows && col >= 0 && col < cols) {
-      // Only return if the cell exists (for sparse grids)
-      const key = `${row}-${col}`;
-      if (cellMap.has(key)) {
-        return { row, col };
-      }
-    }
-    
-    return null;
-  }, [rows, cols, cellMap]);
-
-  const handleDragStart = (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>, row: number, col: number) => {
-    const placement = getPlacement(row, col);
-    if (!placement) return;
-    
-    e.preventDefault();
-    e.stopPropagation();
-    
-    setDragState({
-      isDragging: true,
-      draggedPlacement: placement,
-      startRow: row,
-      startCol: col,
-      currentRow: row,
-      currentCol: col,
-    });
-  };
-
-
-  // Set up global mouse/touch event listeners for dragging
-  useEffect(() => {
-    if (!dragState.isDragging) return;
-    
-    const handleMouseMove = (e: MouseEvent) => {
-      const clientX = e.clientX;
-      const clientY = e.clientY;
-      const cell = getCellFromCoordinates(clientX, clientY);
-      if (cell) {
-        setDragState(prev => ({
-          ...prev,
-          currentRow: cell.row,
-          currentCol: cell.col,
-        }));
-      }
+  }, [dragState.isDragging, onCellClick]);
+  
+  const containerWidth = bounds.width * cellSize;
+  const containerHeight = bounds.height * cellSize;
+  
+  // Helper to check if a cell is on the outer edge of the puzzle shape
+  const isOuterEdge = useCallback((row: number, col: number, side: 'top' | 'right' | 'bottom' | 'left'): boolean => {
+    const neighbors = {
+      top: cellMap.has(`${row - 1}-${col}`),
+      right: cellMap.has(`${row}-${col + 1}`),
+      bottom: cellMap.has(`${row + 1}-${col}`),
+      left: cellMap.has(`${row}-${col - 1}`),
     };
+    return !neighbors[side];
+  }, [cellMap]);
+  
+  // Helper to get border radius for a cell
+  const getBorderRadius = useCallback((row: number, col: number): string => {
+    const topLeft = isOuterEdge(row, col, 'top') && isOuterEdge(row, col, 'left');
+    const topRight = isOuterEdge(row, col, 'top') && isOuterEdge(row, col, 'right');
+    const bottomLeft = isOuterEdge(row, col, 'bottom') && isOuterEdge(row, col, 'left');
+    const bottomRight = isOuterEdge(row, col, 'bottom') && isOuterEdge(row, col, 'right');
     
-    const handleMouseUp = () => {
-      setDragState(prev => {
-        const { startRow, startCol, currentRow, currentCol } = prev;
-        if (currentRow !== null && currentCol !== null && 
-            (currentRow !== startRow || currentCol !== startCol)) {
-          onMovePlacement(startRow, startCol, currentRow, currentCol);
-        }
-        return {
-          isDragging: false,
-          draggedPlacement: null,
-          startRow: -1,
-          startCol: -1,
-          currentRow: null,
-          currentCol: null,
-        };
-      });
-    };
-    
-    const handleTouchMove = (e: TouchEvent) => {
-      e.preventDefault();
-      if (e.touches.length === 0) return;
-      const touch = e.touches[0];
-      const cell = getCellFromCoordinates(touch.clientX, touch.clientY);
-      if (cell) {
-        setDragState(prev => ({
-          ...prev,
-          currentRow: cell.row,
-          currentCol: cell.col,
-        }));
-      }
-    };
-    
-    const handleTouchEnd = (e: TouchEvent) => {
-      e.preventDefault();
-      setDragState(prev => {
-        const { startRow, startCol, currentRow, currentCol } = prev;
-        if (currentRow !== null && currentCol !== null && 
-            (currentRow !== startRow || currentCol !== startCol)) {
-          onMovePlacement(startRow, startCol, currentRow, currentCol);
-        }
-        return {
-          isDragging: false,
-          draggedPlacement: null,
-          startRow: -1,
-          startCol: -1,
-          currentRow: null,
-          currentCol: null,
-        };
-      });
-    };
-
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
-    window.addEventListener('touchmove', handleTouchMove, { passive: false });
-    window.addEventListener('touchend', handleTouchEnd);
-    window.addEventListener('touchcancel', handleTouchEnd);
-
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-      window.removeEventListener('touchmove', handleTouchMove);
-      window.removeEventListener('touchend', handleTouchEnd);
-      window.removeEventListener('touchcancel', handleTouchEnd);
-    };
-  }, [dragState.isDragging, onMovePlacement, getCellFromCoordinates]);
+    return `${topLeft ? '0.375rem' : '0'} ${topRight ? '0.375rem' : '0'} ${bottomRight ? '0.375rem' : '0'} ${bottomLeft ? '0.375rem' : '0'}`;
+  }, [isOuterEdge]);
 
   return (
     <div className="w-full max-w-4xl mx-auto">
       <div className="bg-white rounded-lg shadow-md p-2 sm:p-4 overflow-visible">
-        <div className="relative w-full" style={{ paddingBottom: '100%' }} ref={boardRef}>
-          <div className="absolute inset-0">
-            {/* Background grid layer */}
-            <div
-              className="grid gap-0 border-2 border-gray-300 bg-white h-full"
-              style={{
-                gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
-                gridTemplateRows: `repeat(${rows}, minmax(0, 1fr))`,
-              }}
-            >
-              {Array.from({ length: rows }).map((_, row) =>
-                Array.from({ length: cols }).map((_, col) => {
-                  const key = `${row}-${col}`;
-                  const cellExists = cellMap.has(key);
-                  return (
-                    <div
-                      key={`bg-${row}-${col}`}
-                      className={`aspect-square border-r border-b border-gray-200 pointer-events-none ${
-                        !cellExists ? 'bg-transparent' : ''
-                      }`}
-                    />
-                  );
-                })
-              )}
-            </div>
+        <div 
+          className="relative mx-auto"
+          style={{ 
+            width: `${containerWidth}px`,
+            height: `${containerHeight}px`,
+            minWidth: '200px',
+            minHeight: '200px',
+          }} 
+          ref={boardRef}
+        >
+            {/* Background tan/beige squares layer - separate layer like NYT, extends beyond colored regions */}
+            {puzzle.cells.map(cell => {
+              const { row, col } = cell;
+              const relativeRow = row - bounds.minRow;
+              const relativeCol = col - bounds.minCol;
+              const padding = cellSize * 0.10; // Extend tan squares 10% beyond colored regions
+              const left = relativeCol * cellSize - padding;
+              const top = relativeRow * cellSize - padding;
+              const size = cellSize + (padding * 2); // Make tan squares larger
+              
+              return (
+                <div
+                  key={`bg-${row}-${col}`}
+                  className="absolute pointer-events-none"
+                  style={{
+                    left: `${left}px`,
+                    top: `${top}px`,
+                    width: `${size}px`,
+                    height: `${size}px`,
+                    backgroundColor: '#e8dcc6', // beige/tan color - slightly darker for visibility
+                    borderRadius: getBorderRadius(row, col),
+                    zIndex: 0,
+                  }}
+                />
+              );
+            })}
 
             {/* Region layers */}
             {puzzle.regions.map(region => (
@@ -251,28 +196,9 @@ const Board = ({
               />
             ))}
 
-            {/* Interactive cells layer */}
-            <div
-              className="grid gap-0 absolute inset-0"
-              style={{
-                gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
-                gridTemplateRows: `repeat(${rows}, minmax(0, 1fr))`,
-              }}
-            >
-              {Array.from({ length: rows }).map((_, row) =>
-                Array.from({ length: cols }).map((_, col) => {
-                  const key = `${row}-${col}`;
-                  const cell = cellMap.get(key);
-                  
-                  // If cell doesn't exist, render transparent spacer
-                  if (!cell) {
-                    return (
-                      <div
-                        key={`spacer-${row}-${col}`}
-                        className="bg-transparent pointer-events-none"
-                      />
-                    );
-                  }
+            {/* Interactive cells layer - only render cells that exist */}
+            {puzzle.cells.map(cell => {
+                  const { row, col } = cell;
                   const placement = getPlacement(row, col);
                   const isInvalid = isCellInvalid(row, col);
                   const isHighlighted = isCellHighlighted(row, col);
@@ -294,25 +220,60 @@ const Board = ({
                   const isDraggable = placement !== undefined;
 
                   const cellId = `cell-${row}-${col}`;
+                  
+                  // Calculate absolute position relative to bounding box
+                  const relativeRow = row - bounds.minRow;
+                  const relativeCol = col - bounds.minCol;
+                  const left = relativeCol * cellSize;
+                  const top = relativeRow * cellSize;
 
                   return (
-                    <DroppableCell
+                    <div
                       key={cellId}
-                      id={cellId}
-                      className={`
-                        aspect-square
-                        ${isInvalid ? 'bg-red-100' : ''}
-                        ${isHighlighted ? 'bg-yellow-200 ring-2 ring-yellow-400' : ''}
-                        ${isDropTarget ? 'bg-blue-100 ring-2 ring-blue-400' : ''}
-                        ${isClickable && placementMode !== 'select-domino' ? 'cursor-pointer hover:bg-gray-100 active:bg-gray-200 touch-manipulation' : ''}
-                        ${isDraggable ? 'cursor-grab active:cursor-grabbing' : ''}
-                        ${isDragged ? 'opacity-50' : ''}
-                        flex items-center justify-center
-                        transition-colors
-                        relative z-10
-                        min-h-[44px] min-w-[44px]
-                      `}
+                    style={{
+                      position: 'absolute',
+                      left: `${left}px`,
+                      top: `${top}px`,
+                      width: `${cellSize}px`,
+                      height: `${cellSize}px`,
+                      borderRadius: getBorderRadius(row, col),
+                      zIndex: 8, // Below region borders but above region backgrounds
+                    }}
                     >
+                      <DroppableCell
+                        id={cellId}
+                        className={`
+                          w-full h-full
+                          relative
+                          ${isInvalid ? 'bg-red-100' : ''}
+                          ${isHighlighted ? 'bg-yellow-200 ring-2 ring-yellow-400' : ''}
+                          ${isDropTarget ? 'bg-blue-100 ring-2 ring-blue-400' : ''}
+                          ${isClickable && placementMode !== 'select-domino' ? 'cursor-pointer hover:bg-gray-50 active:bg-gray-100 touch-manipulation' : ''}
+                          ${isDraggable ? 'cursor-grab active:cursor-grabbing' : ''}
+                          ${isDragged ? 'opacity-50' : ''}
+                          flex items-center justify-center
+                          transition-colors
+                          z-10
+                        `}
+                        style={{
+                          backgroundColor: 'transparent', // Transparent so tan squares and colored regions show through
+                        }}
+                      >
+                      {/* Inner lighter tan square to show cell boundaries */}
+                      {!isInvalid && !isHighlighted && !isDropTarget && (
+                        <div
+                          className="absolute pointer-events-none"
+                          style={{
+                            left: '2px',
+                            top: '2px',
+                            right: '2px',
+                            bottom: '2px',
+                            backgroundColor: '#f5f0e6', // Lighter tan for inner square
+                            borderRadius: '2px',
+                            zIndex: 1,
+                          }}
+                        />
+                      )}
                       <div
                         onClick={() => handleCellClick(row, col)}
                         onMouseDown={(e) => {
@@ -345,42 +306,42 @@ const Board = ({
                         </div>
                       </div>
                     </DroppableCell>
+                    </div>
                   );
-                })
-              )}
-            </div>
+                })}
 
             {/* Domino overlay layer */}
-            <div
-              className="pointer-events-none absolute inset-0 grid"
-              style={{
-                gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
-                gridTemplateRows: `repeat(${rows}, minmax(0, 1fr))`,
-              }}
-            >
-              {puzzle.placements.map(placement => {
+            {puzzle.placements.map(placement => {
                 const domino = getDominoForPlacement(placement.dominoId, puzzle.availableDominoes);
                 if (!domino) return null;
 
                 const { row, col, orientation } = placement;
+                
+                // Calculate absolute position for domino
+                const relativeRow = row - bounds.minRow;
+                const relativeCol = col - bounds.minCol;
+                const left = relativeCol * cellSize;
+                const top = relativeRow * cellSize;
 
                 const areaStyles: React.CSSProperties =
                   orientation === 'horizontal'
                     ? {
-                        gridRowStart: row + 1,
-                        gridRowEnd: row + 2,
-                        gridColumnStart: col + 1,
-                        gridColumnEnd: col + 3, // span 2 columns
+                        position: 'absolute',
+                        left: `${left}px`,
+                        top: `${top}px`,
+                        width: `${cellSize * 2}px`,
+                        height: `${cellSize}px`,
                       }
                     : {
-                        gridRowStart: row + 1,
-                        gridRowEnd: row + 3, // span 2 rows
-                        gridColumnStart: col + 1,
-                        gridColumnEnd: col + 2,
+                        position: 'absolute',
+                        left: `${left}px`,
+                        top: `${top}px`,
+                        width: `${cellSize}px`,
+                        height: `${cellSize * 2}px`,
                       };
 
                 // Check if this placement is being dragged
-                const isDragged = dragState.isDragging && 
+                const isDraggedPlacement = dragState.isDragging && 
                   dragState.draggedPlacement &&
                   dragState.draggedPlacement.dominoId === placement.dominoId;
 
@@ -388,7 +349,7 @@ const Board = ({
                   <div
                     key={placement.id}
                     style={areaStyles}
-                    className={`flex items-center justify-center p-1 sm:p-1.5 pointer-events-auto ${isDragged ? 'opacity-50' : ''}`}
+                    className={`flex items-center justify-center p-1 sm:p-1.5 pointer-events-auto z-20 ${isDraggedPlacement ? 'opacity-50' : ''}`}
                   >
                     <DraggableDomino
                       id={`placement-${placement.dominoId}`}
@@ -405,13 +366,11 @@ const Board = ({
                   </div>
                 );
               })}
-            </div>
-          </div>
         </div>
       </div>
     </div>
   );
 };
 
-export default Board;
+export default memo(Board);
 

@@ -1,17 +1,21 @@
+// Import test helpers first to set test mode flag
+import './testHelpers';
 import { describe, it, expect } from 'vitest';
 import { solvePuzzle } from '../solver';
-import { generatePuzzle } from '../generator';
+import { createMinimalTestPuzzle } from './testHelpers';
 
 describe('solvePuzzle', () => {
   it('should return null for stub implementation', () => {
-    const puzzle = generatePuzzle('easy', 'test-solver-stub');
+    // Use minimal fixture - solver tests don't need full generation
+    const puzzle = createMinimalTestPuzzle('easy', 'test-solver-stub');
     const result = solvePuzzle(puzzle);
     
     expect(result).toBeNull();
   });
   
   it('should accept a valid puzzle and return Puzzle | null', () => {
-    const puzzle = generatePuzzle('medium', 'test-solver-types');
+    // Use minimal fixture - solver tests don't need full generation
+    const puzzle = createMinimalTestPuzzle('medium', 'test-solver-types');
     const result = solvePuzzle(puzzle);
     
     // Type check: result should be null or Puzzle
@@ -19,9 +23,10 @@ describe('solvePuzzle', () => {
   });
   
   it('should handle puzzles of all difficulty levels', () => {
-    const easyPuzzle = generatePuzzle('easy', 'test-easy');
-    const mediumPuzzle = generatePuzzle('medium', 'test-medium');
-    const hardPuzzle = generatePuzzle('hard', 'test-hard');
+    // Use minimal fixtures - solver tests don't need full generation
+    const easyPuzzle = createMinimalTestPuzzle('easy', 'test-easy');
+    const mediumPuzzle = createMinimalTestPuzzle('medium', 'test-medium');
+    const hardPuzzle = createMinimalTestPuzzle('hard', 'test-hard');
     
     expect(solvePuzzle(easyPuzzle)).toBeNull();
     expect(solvePuzzle(mediumPuzzle)).toBeNull();
@@ -29,7 +34,8 @@ describe('solvePuzzle', () => {
   });
   
   it('should have correct function signature', () => {
-    const puzzle = generatePuzzle('easy', 'test-signature');
+    // Use minimal fixture - solver tests don't need full generation
+    const puzzle = createMinimalTestPuzzle('easy', 'test-signature');
     
     // Function should exist and be callable
     expect(typeof solvePuzzle).toBe('function');

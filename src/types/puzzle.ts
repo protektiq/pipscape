@@ -1,6 +1,3 @@
-// Grid dimensions
-export const GRID_SIZE = 6;
-
 // Domino representation (0-6 pips per side)
 export type Domino = {
   id: string;
@@ -10,10 +7,11 @@ export type Domino = {
 
 // Region rule types
 export const RuleType = {
-  SUM_AT_LEAST: 'SUM_AT_LEAST',
-  SUM_AT_MOST: 'SUM_AT_MOST',
   VALUES_EQUAL: 'VALUES_EQUAL',
-  VALUES_ALL_DIFFERENT: 'VALUES_ALL_DIFFERENT',
+  VALUES_NOT_EQUAL: 'VALUES_NOT_EQUAL',
+  SUM_LESS_THAN: 'SUM_LESS_THAN',
+  SUM_GREATER_THAN: 'SUM_GREATER_THAN',
+  SUM_EQUALS: 'SUM_EQUALS',
 } as const;
 
 export type RuleType = typeof RuleType[keyof typeof RuleType];

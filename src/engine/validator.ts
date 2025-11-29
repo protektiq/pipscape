@@ -70,28 +70,33 @@ const calculateRegionSum = (puzzle: Puzzle, regionId: string): number => {
     return 0;
   }
 
-  let sum = 0;
-
-  // Check each cell in the region
+  // Create a set of region cell keys for quick lookup
+  const regionCellKeys = new Set<string>();
   for (const cell of region.cells) {
-    // Find if there's a placement covering this cell
-    for (const placement of puzzle.placements) {
-      const placementCells = getPlacementCells(placement);
-      
-      // Check if this cell is covered by the placement
-      const isCovered = placementCells.some(
-        pc => pc.row === cell.row && pc.col === cell.col
-      );
+    regionCellKeys.add(`${cell.row}-${cell.col}`);
+  }
 
-      if (isCovered) {
-        // Add the domino value (only count once per domino)
-        // We'll count it when we hit the first cell of the domino
-        const firstCell = placementCells[0];
-        if (cell.row === firstCell.row && cell.col === firstCell.col) {
-          sum += getDominoValueForPlacement(puzzle, placement.dominoId);
-        }
-        break; // Found the placement covering this cell
-      }
+  let sum = 0;
+  const processedPlacements = new Set<string>();
+
+  // Check each placement to see if it overlaps with the region
+  for (const placement of puzzle.placements) {
+    // Skip if we've already processed this placement
+    if (processedPlacements.has(placement.dominoId)) {
+      continue;
+    }
+
+    const placementCells = getPlacementCells(placement);
+    
+    // Check if ANY cell of this placement is in the region
+    const hasOverlap = placementCells.some(
+      pc => regionCellKeys.has(`${pc.row}-${pc.col}`)
+    );
+
+    if (hasOverlap) {
+      // Add the domino value (only count once per domino)
+      sum += getDominoValueForPlacement(puzzle, placement.dominoId);
+      processedPlacements.add(placement.dominoId);
     }
   }
 
@@ -105,36 +110,34 @@ const getAllDominoValuesInRegion = (puzzle: Puzzle, regionId: string): number[] 
     return [];
   }
 
+  // Create a set of region cell keys for quick lookup
+  const regionCellKeys = new Set<string>();
+  for (const cell of region.cells) {
+    regionCellKeys.add(`${cell.row}-${cell.col}`);
+  }
+
   const dominoValues: number[] = [];
   const processedPlacements = new Set<string>();
 
-  // Check each cell in the region
-  for (const cell of region.cells) {
-    // Find if there's a placement covering this cell
-    for (const placement of puzzle.placements) {
-      // Skip if we've already processed this placement
-      if (processedPlacements.has(placement.dominoId)) {
-        continue;
-      }
+  // Check each placement to see if it overlaps with the region
+  for (const placement of puzzle.placements) {
+    // Skip if we've already processed this placement
+    if (processedPlacements.has(placement.dominoId)) {
+      continue;
+    }
 
-      const placementCells = getPlacementCells(placement);
-      
-      // Check if this cell is covered by the placement
-      const isCovered = placementCells.some(
-        pc => pc.row === cell.row && pc.col === cell.col
-      );
+    const placementCells = getPlacementCells(placement);
+    
+    // Check if ANY cell of this placement is in the region
+    const hasOverlap = placementCells.some(
+      pc => regionCellKeys.has(`${pc.row}-${pc.col}`)
+    );
 
-      if (isCovered) {
-        // Add the domino value (only count once per domino)
-        // We'll count it when we hit the first cell of the domino
-        const firstCell = placementCells[0];
-        if (cell.row === firstCell.row && cell.col === firstCell.col) {
-          const value = getDominoValueForPlacement(puzzle, placement.dominoId);
-          dominoValues.push(value);
-          processedPlacements.add(placement.dominoId);
-        }
-        break; // Found the placement covering this cell
-      }
+    if (hasOverlap) {
+      // Add the domino value (only count once per domino)
+      const value = getDominoValueForPlacement(puzzle, placement.dominoId);
+      dominoValues.push(value);
+      processedPlacements.add(placement.dominoId);
     }
   }
 
@@ -151,33 +154,51 @@ export const validatePuzzle = (puzzle: Puzzle): ValidationResult => {
     let isValid = true;
 
     switch (rule.type) {
-      case RuleType.SUM_AT_LEAST: {
+      case RuleType.SUM_EQUALS: {
         const sum = calculateRegionSum(puzzle, region.id);
-        isValid = sum >= rule.value;
+        const dominoValues = getAllDominoValuesInRegion(puzzle, region.id);
+        // Must have at least one placement in the region, and sum must equal rule.value
+        isValid = dominoValues.length > 0 && sum === rule.value;
         break;
       }
-      case RuleType.SUM_AT_MOST: {
+      case RuleType.SUM_LESS_THAN: {
         const sum = calculateRegionSum(puzzle, region.id);
-        isValid = sum <= rule.value;
+        const dominoValues = getAllDominoValuesInRegion(puzzle, region.id);
+        // Must have at least one placement in the region, and sum must be less than rule.value
+        isValid = dominoValues.length > 0 && sum < rule.value;
+        break;
+      }
+      case RuleType.SUM_GREATER_THAN: {
+        const sum = calculateRegionSum(puzzle, region.id);
+        const dominoValues = getAllDominoValuesInRegion(puzzle, region.id);
+        // Must have at least one placement in the region, and sum must be greater than rule.value
+        isValid = dominoValues.length > 0 && sum > rule.value;
         break;
       }
       case RuleType.VALUES_EQUAL: {
         const dominoValues = getAllDominoValuesInRegion(puzzle, region.id);
-        // A region with 0 or 1 domino is trivially valid
+        // A region with 0 dominoes is invalid (needs at least one)
+        // A region with 1 domino is trivially valid
         // A region with 2+ dominoes must have all values equal
-        if (dominoValues.length > 1) {
+        if (dominoValues.length === 0) {
+          isValid = false;
+        } else if (dominoValues.length === 1) {
+          isValid = true;
+        } else {
           const firstValue = dominoValues[0];
           isValid = dominoValues.every(value => value === firstValue);
         }
         break;
       }
-      case RuleType.VALUES_ALL_DIFFERENT: {
+      case RuleType.VALUES_NOT_EQUAL: {
         const dominoValues = getAllDominoValuesInRegion(puzzle, region.id);
-        // A region with 0 or 1 domino is trivially valid
-        // A region with 2+ dominoes must have all unique values
-        if (dominoValues.length > 1) {
-          const uniqueValues = new Set(dominoValues);
-          isValid = uniqueValues.size === dominoValues.length;
+        // A region with 0 or 1 domino is invalid (needs at least 2 to compare)
+        // A region with 2+ dominoes must have at least one different value (not all equal)
+        if (dominoValues.length < 2) {
+          isValid = false;
+        } else {
+          const firstValue = dominoValues[0];
+          isValid = !dominoValues.every(value => value === firstValue);
         }
         break;
       }

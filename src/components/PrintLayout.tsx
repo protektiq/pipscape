@@ -1,14 +1,16 @@
+import { useMemo } from 'react';
 import type { Puzzle } from '../types/puzzle';
 import { buildCellLookup } from '../types/puzzle';
-import { getRegionColor } from '../engine/regionUtils';
 import RegionComponent from './Region';
+import DominoTile from './DominoTile';
 
 interface PrintLayoutProps {
   puzzle: Puzzle;
 }
 
 const PrintLayout = ({ puzzle }: PrintLayoutProps) => {
-  const cellMap = buildCellLookup(puzzle);
+  // Memoize cell lookup map - only recalculate when puzzle.cells changes
+  const cellMap = useMemo(() => buildCellLookup(puzzle), [puzzle.cells]);
   const rows = puzzle.rows;
   const cols = puzzle.cols;
   
@@ -85,67 +87,32 @@ const PrintLayout = ({ puzzle }: PrintLayoutProps) => {
           </div>
         </div>
 
-        {/* Region Rules - starts on second page */}
-        <div className="mb-8 print:mb-4 print:page-break-before-always">
+        {/* Available Dominoes */}
+        <div className="mb-8 print:mb-4 print:page-break-inside-avoid">
           <h2 className="text-2xl font-bold text-gray-900 mb-4 print:mb-2">
-            Region Rules
+            Available Dominoes
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 print:grid-cols-2">
-            {puzzle.regions.map((region, index) => {
-              const ruleText =
-                region.rule.type === 'SUM_AT_LEAST'
-                  ? `Sum ≥ ${region.rule.value}`
-                  : region.rule.type === 'SUM_AT_MOST'
-                  ? `Sum ≤ ${region.rule.value}`
-                  : region.rule.type === 'VALUES_EQUAL'
-                  ? 'All values equal'
-                  : 'All values different';
-              
-              const color = getRegionColor(region.id);
-
-              return (
+          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3 print:grid-cols-6 print:gap-2">
+            {[...puzzle.availableDominoes]
+              .sort((a, b) => {
+                if (a.left !== b.left) return a.left - b.left;
+                return a.right - b.right;
+              })
+              .map((domino) => (
                 <div
-                  key={region.id}
-                  className="border-2 rounded-lg p-4"
-                  style={{
-                    borderColor: color.border,
-                    backgroundColor: `${color.bg}15`, // 15% opacity
-                  }}
+                  key={domino.id}
+                  className="flex justify-center items-center print:scale-90"
                 >
-                  <div 
-                    className="font-semibold mb-2"
-                    style={{ color: color.border }}
-                  >
-                    Region {index + 1}
-                  </div>
-                  <div 
-                    className="text-lg font-medium"
-                    style={{ color: color.border }}
-                  >
-                    {ruleText}
-                  </div>
-                  <div className="text-sm text-gray-600 mt-1">
-                    {region.cells.length} cells
-                  </div>
+                  <DominoTile
+                    left={domino.left}
+                    right={domino.right}
+                    variant="tray"
+                    orientation="horizontal"
+                    className="print:w-14 print:h-7"
+                  />
                 </div>
-              );
-            })}
+              ))}
           </div>
-        </div>
-
-        {/* Instructions */}
-        <div className="border-t border-gray-300 pt-6 print:pt-4 print:border-gray-600">
-          <h3 className="text-xl font-semibold text-gray-900 mb-3 print:mb-2">
-            Instructions
-          </h3>
-          <ol className="list-decimal list-inside space-y-2 text-gray-700 print:text-sm">
-            <li>Place dominoes on the grid to satisfy all region rules.</li>
-            <li>Each domino covers two adjacent cells (horizontally or vertically).</li>
-            <li>
-              Each region has a constraint that must be satisfied: sum ≥ value, sum ≤ value, all values equal, or all values different.
-            </li>
-            <li>Use all available dominoes exactly once.</li>
-          </ol>
         </div>
       </div>
     </div>

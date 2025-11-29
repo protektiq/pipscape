@@ -27,7 +27,10 @@ const DraggableDomino = ({ id, data, children, disabled = false, className = '' 
   return (
     <div
       ref={setNodeRef}
-      style={style}
+      style={{
+        ...style,
+        touchAction: 'none', // Prevent default touch behaviors (scrolling, zooming) during drag
+      }}
       {...listeners}
       {...attributes}
       className={`${className} ${isDragging ? 'opacity-50 z-50' : ''}`}

@@ -16,6 +16,24 @@ export const getPlacementCells = (placement: Placement): CellPosition[] => {
   return cells;
 };
 
+// Build a lookup Map for O(1) placement access by cell coordinates
+// Key format: `${row}-${col}`, Value: Placement
+export const buildPlacementLookup = (placements: Placement[]): Map<string, Placement> => {
+  const lookup = new Map<string, Placement>();
+  
+  for (const placement of placements) {
+    const cells = getPlacementCells(placement);
+    for (const cell of cells) {
+      const key = `${cell.row}-${cell.col}`;
+      // If a cell is covered by multiple placements (shouldn't happen in valid puzzles),
+      // the last one wins. This is fine for our use case.
+      lookup.set(key, placement);
+    }
+  }
+  
+  return lookup;
+};
+
 // Check if a cell position is within grid bounds
 export const isWithinBounds = (cell: CellPosition, rows: number, cols: number): boolean => {
   return cell.row >= 0 && 
@@ -51,12 +69,21 @@ export const placementsOverlap = (p1: Placement, p2: Placement): boolean => {
   return false;
 };
 
-// Get placement covering a specific cell
+// Get placement covering a specific cell (O(n) - use buildPlacementLookup for O(1) access)
 export const getPlacementForCell = (row: number, col: number, placements: Placement[]): Placement | undefined => {
   return placements.find(p => {
     const cells = getPlacementCells(p);
     return cells.some(c => c.row === row && c.col === col);
   });
+};
+
+// Get placement covering a specific cell using a lookup Map (O(1) access)
+export const getPlacementForCellFromMap = (
+  row: number,
+  col: number,
+  placementLookup: Map<string, Placement>
+): Placement | undefined => {
+  return placementLookup.get(`${row}-${col}`);
 };
 
 // Check if two cell positions are adjacent (horizontally or vertically)

@@ -1,28 +1,31 @@
-import { usePuzzleStore } from '../store/puzzleStore';
-import { isDominoPlaced } from '../engine/placementEngine';
+import { memo, useMemo, useCallback } from 'react';
+import { usePuzzleData, usePlacementUI, usePuzzleActions } from '../store/puzzleStore';
+import type { Domino } from '../types/puzzle';
 import DominoTile from './DominoTile';
 import DraggableDomino from './DraggableDomino';
 
 const DominoTray = () => {
-  const {
-    currentPuzzle,
-    selectedDominoId,
-    selectedOrientation,
-    selectDomino,
-    rotateSelectedDomino,
-  } = usePuzzleStore();
+  const { currentPuzzle } = usePuzzleData();
+  const { selectedDominoId, selectedOrientation } = usePlacementUI();
+  const { selectDomino, rotateSelectedDomino } = usePuzzleActions();
 
-  if (!currentPuzzle) {
-    return null;
-  }
+  // Memoize placed dominoes lookup for O(1) checks
+  const placedDominoes = useMemo(() => {
+    if (!currentPuzzle) return new Set<string>();
+    const placed = new Set<string>();
+    for (const placement of currentPuzzle.placements) {
+      placed.add(placement.dominoId);
+    }
+    return placed;
+  }, [currentPuzzle?.placements]);
 
-  // Check if domino is placed
-  const isPlaced = (dominoId: string) => {
-    return isDominoPlaced(dominoId, currentPuzzle);
-  };
+  // Check if domino is placed - memoized
+  const isPlaced = useCallback((dominoId: string): boolean => {
+    return placedDominoes.has(dominoId);
+  }, [placedDominoes]);
 
-  const handleDominoClick = (dominoId: string) => {
-    if (isPlaced(dominoId)) {
+  const handleDominoClick = useCallback((dominoId: string) => {
+    if (placedDominoes.has(dominoId)) {
       return; // Don't allow selecting placed dominoes
     }
 
@@ -33,29 +36,42 @@ const DominoTray = () => {
       // Different domino clicked - select it (resets orientation to horizontal)
       selectDomino(dominoId);
     }
-  };
+  }, [placedDominoes, selectedDominoId, rotateSelectedDomino, selectDomino]);
 
-  // Group dominoes by sum
-  const groupedBySum = currentPuzzle.availableDominoes.reduce((acc, domino) => {
-    const sum = domino.left + domino.right;
-    if (!acc[sum]) {
-      acc[sum] = [];
+  // Memoize grouped and sorted dominoes - only recalculate when availableDominoes changes
+  const { groupedBySum, sortedSums } = useMemo(() => {
+    if (!currentPuzzle) {
+      return { groupedBySum: {} as Record<number, Domino[]>, sortedSums: [] as number[] };
     }
-    acc[sum].push(domino);
-    return acc;
-  }, {} as Record<number, typeof currentPuzzle.availableDominoes>);
 
-  // Sort each group by left value, and sort sums
-  const sortedSums = Object.keys(groupedBySum)
-    .map(Number)
-    .sort((a, b) => a - b);
+    // Group dominoes by sum
+    const grouped = currentPuzzle.availableDominoes.reduce((acc, domino) => {
+      const sum = domino.left + domino.right;
+      if (!acc[sum]) {
+        acc[sum] = [];
+      }
+      acc[sum].push(domino);
+      return acc;
+    }, {} as Record<number, typeof currentPuzzle.availableDominoes>);
 
-  sortedSums.forEach(sum => {
-    groupedBySum[sum].sort((a, b) => {
-      if (a.left !== b.left) return a.left - b.left;
-      return a.right - b.right;
+    // Sort each group by left value, and sort sums
+    const sorted = Object.keys(grouped)
+      .map(Number)
+      .sort((a, b) => a - b);
+
+    sorted.forEach(sum => {
+      grouped[sum].sort((a, b) => {
+        if (a.left !== b.left) return a.left - b.left;
+        return a.right - b.right;
+      });
     });
-  });
+
+    return { groupedBySum: grouped, sortedSums: sorted };
+  }, [currentPuzzle?.availableDominoes]);
+
+  if (!currentPuzzle) {
+    return null;
+  }
 
   return (
     <div className="bg-white rounded-lg shadow-lg p-3 sm:p-4">
@@ -66,7 +82,7 @@ const DominoTray = () => {
       <div className="mt-2 flex flex-wrap items-center gap-2">
         {sortedSums.map(sum => {
           const group = groupedBySum[sum];
-          return group.map(domino => {
+          return group.map((domino: Domino) => {
             const isSelected = selectedDominoId === domino.id;
             const isPlacedDomino = isPlaced(domino.id);
 
@@ -102,4 +118,4 @@ const DominoTray = () => {
   );
 };
 
-export default DominoTray;
+export default memo(DominoTray);

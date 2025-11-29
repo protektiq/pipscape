@@ -1,3 +1,5 @@
+import { memo } from 'react';
+
 // Simple className utility
 const cn = (...classes: (string | boolean | undefined)[]): string => {
   return classes.filter(Boolean).join(' ');
@@ -117,5 +119,5 @@ const DominoTile = ({
   );
 };
 
-export default DominoTile;
+export default memo(DominoTile);
 

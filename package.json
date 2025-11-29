@@ -5,6 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:verbose": "vite --logLevel info",
+    "dev:debug": "DEBUG=vite:* vite",
+    "dev:quiet": "vite --logLevel warn",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",

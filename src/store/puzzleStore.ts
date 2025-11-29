@@ -1,6 +1,8 @@
+import { useMemo } from 'react';
 import { create } from 'zustand';
 import type { Puzzle, CellPosition, ValidationResult, Placement } from '../types/puzzle';
-import { generatePuzzle } from '../engine/generator';
+import { puzzlePool } from '../engine/puzzlePool';
+import { solutionCache } from '../engine/solutionCache';
 import { validatePuzzle as validatePuzzleEngine } from '../engine/validator';
 import { 
   handleFirstCellClick, 
@@ -25,9 +27,11 @@ interface PuzzleState {
   firstCell: CellPosition | null;
   validationResult: ValidationResult | null;
   invalidPlacementMessage: string | null;
+  generationError: string | null;
 
   // Actions
-  generatePuzzle: (difficulty: 'easy' | 'medium' | 'hard', seed?: string) => void;
+  generatePuzzle: (difficulty: 'easy' | 'medium' | 'hard', seed?: string) => Promise<void>;
+  isGenerating: boolean;
   selectDomino: (dominoId: string) => void;
   rotateSelectedDomino: () => void;
   createPlacementFromTray: (dominoId: string, cell: CellPosition) => void;
@@ -41,6 +45,7 @@ interface PuzzleState {
   solvePuzzle: () => void;
   setPuzzle: (puzzle: Puzzle) => void;
   clearInvalidPlacementMessage: () => void;
+  clearGenerationError: () => void;
 }
 
 export const usePuzzleStore = create<PuzzleState>((set, get) => ({
@@ -51,18 +56,73 @@ export const usePuzzleStore = create<PuzzleState>((set, get) => ({
   firstCell: null,
   validationResult: null,
   invalidPlacementMessage: null,
+  isGenerating: false,
+  generationError: null,
 
-  generatePuzzle: (difficulty, seed) => {
-    const puzzle = generatePuzzle(difficulty, seed);
-    set({
-      currentPuzzle: puzzle,
-      selectedDominoId: null,
-      selectedOrientation: 'horizontal',
-      placementMode: 'select-domino',
-      firstCell: null,
-      validationResult: null,
-      invalidPlacementMessage: null,
-    });
+  generatePuzzle: async (difficulty, seed) => {
+    console.log(`[PuzzleStore] Starting puzzle generation for ${difficulty}`, seed ? `with seed: ${seed}` : '');
+    set({ isGenerating: true, generationError: null });
+    
+    try {
+      // Get puzzle directly - generation is now fast and synchronous
+      // No timeouts, no promise racing - just get it
+      console.log(`[PuzzleStore] Calling puzzlePool.getPuzzle...`);
+      const puzzle = await puzzlePool.getPuzzle(difficulty, seed);
+      console.log(`[PuzzleStore] Got puzzle from pool:`, puzzle ? `id=${puzzle.id}, solution=${puzzle.solution?.length || 0} placements` : 'null');
+      
+      // Validate puzzle has solution
+      if (!puzzle.solution) {
+        throw new Error(`Puzzle received without solution from puzzlePool for ${difficulty}`);
+      }
+      
+      // Ensure solution is cached
+      solutionCache.set(puzzle.seed, puzzle.solution);
+      
+      // Set puzzle immediately - no delays
+      set({
+        currentPuzzle: puzzle,
+        selectedDominoId: null,
+        selectedOrientation: 'horizontal',
+        placementMode: 'select-domino',
+        firstCell: null,
+        validationResult: null,
+        invalidPlacementMessage: null,
+        isGenerating: false,
+      });
+    } catch (error) {
+      console.error('Failed to generate puzzle:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      
+      // Try one immediate fallback with a unique seed
+      try {
+        const fallbackSeed = `${difficulty}-fallback-${Date.now()}-${Math.random()}`;
+        const fallbackPuzzle = await puzzlePool.getPuzzle(difficulty, fallbackSeed);
+        
+        if (!fallbackPuzzle.solution) {
+          throw new Error('Fallback puzzle has no solution');
+        }
+        
+        solutionCache.set(fallbackPuzzle.seed, fallbackPuzzle.solution);
+        
+        set({
+          currentPuzzle: fallbackPuzzle,
+          selectedDominoId: null,
+          selectedOrientation: 'horizontal',
+          placementMode: 'select-domino',
+          firstCell: null,
+          validationResult: null,
+          invalidPlacementMessage: null,
+          isGenerating: false,
+        });
+      } catch (fallbackError) {
+        // Both attempts failed
+        console.error('Fallback generation also failed:', fallbackError);
+        set({ 
+          isGenerating: false,
+          generationError: `Unable to generate puzzle: ${errorMessage}. Please try again.`,
+        });
+      }
+    }
   },
 
   selectDomino: (dominoId) => {
@@ -322,6 +382,10 @@ export const usePuzzleStore = create<PuzzleState>((set, get) => ({
     set({ invalidPlacementMessage: null });
   },
 
+  clearGenerationError: () => {
+    set({ generationError: null });
+  },
+
   validateSolution: () => {
     const state = get();
     if (!state.currentPuzzle) {
@@ -348,17 +412,35 @@ export const usePuzzleStore = create<PuzzleState>((set, get) => ({
 
   solvePuzzle: () => {
     const state = get();
-    if (!state.currentPuzzle || !state.currentPuzzle.solution) {
+    if (!state.currentPuzzle) {
       return;
     }
 
-    console.log('Solve placements', state.currentPuzzle.solution);
+    // Try to get solution from puzzle first, then from cache
+    let solution = state.currentPuzzle.solution;
+    
+    if (!solution) {
+      // Solution not in puzzle, try cache
+      const cachedSolution = solutionCache.get(state.currentPuzzle.seed);
+      if (cachedSolution) {
+        solution = cachedSolution;
+        // Update puzzle with solution for future use
+        state.currentPuzzle.solution = solution;
+      }
+    }
+
+    if (!solution) {
+      // No solution available - this shouldn't happen if puzzle was generated correctly
+      console.warn('No solution available for puzzle:', state.currentPuzzle.id);
+      return;
+    }
 
     // Simply update placements with solution - let the board render from placements
     set({
       currentPuzzle: {
         ...state.currentPuzzle,
-        placements: [...state.currentPuzzle.solution],
+        placements: [...solution],
+        solution, // Ensure solution is stored in puzzle
       },
       selectedDominoId: null,
       selectedOrientation: 'horizontal',
@@ -381,3 +463,111 @@ export const usePuzzleStore = create<PuzzleState>((set, get) => ({
     });
   },
 }));
+
+// Optimized selectors to prevent unnecessary re-renders
+// Components should use these instead of destructuring the entire store
+// Using individual selectors for each value to prevent object recreation
+
+// Individual selectors for puzzle data
+export const useCurrentPuzzle = () => usePuzzleStore((state) => state.currentPuzzle);
+export const useIsGenerating = () => usePuzzleStore((state) => state.isGenerating);
+export const useGenerationError = () => usePuzzleStore((state) => state.generationError);
+
+// Individual selectors for placement UI state
+export const usePlacementMode = () => usePuzzleStore((state) => state.placementMode);
+export const useSelectedDominoId = () => usePuzzleStore((state) => state.selectedDominoId);
+export const useSelectedOrientation = () => usePuzzleStore((state) => state.selectedOrientation);
+export const useFirstCell = () => usePuzzleStore((state) => state.firstCell);
+
+// Individual selectors for validation state
+export const useValidationResult = () => usePuzzleStore((state) => state.validationResult);
+export const useInvalidPlacementMessage = () => usePuzzleStore((state) => state.invalidPlacementMessage);
+
+// Selector for puzzle actions - actions are stable functions, so we can safely return them
+// Using useMemo to ensure stable reference
+export const usePuzzleActions = () => {
+  const generatePuzzle = usePuzzleStore((state) => state.generatePuzzle);
+  const selectDomino = usePuzzleStore((state) => state.selectDomino);
+  const rotateSelectedDomino = usePuzzleStore((state) => state.rotateSelectedDomino);
+  const createPlacementFromTray = usePuzzleStore((state) => state.createPlacementFromTray);
+  const placeDomino = usePuzzleStore((state) => state.placeDomino);
+  const removePlacement = usePuzzleStore((state) => state.removePlacement);
+  const rotatePlacement = usePuzzleStore((state) => state.rotatePlacement);
+  const movePlacement = usePuzzleStore((state) => state.movePlacement);
+  const clearSelection = usePuzzleStore((state) => state.clearSelection);
+  const validateSolution = usePuzzleStore((state) => state.validateSolution);
+  const setPlacements = usePuzzleStore((state) => state.setPlacements);
+  const solvePuzzle = usePuzzleStore((state) => state.solvePuzzle);
+  const setPuzzle = usePuzzleStore((state) => state.setPuzzle);
+  const clearInvalidPlacementMessage = usePuzzleStore((state) => state.clearInvalidPlacementMessage);
+  const clearGenerationError = usePuzzleStore((state) => state.clearGenerationError);
+
+  return useMemo(
+    () => ({
+      generatePuzzle,
+      selectDomino,
+      rotateSelectedDomino,
+      createPlacementFromTray,
+      placeDomino,
+      removePlacement,
+      rotatePlacement,
+      movePlacement,
+      clearSelection,
+      validateSolution,
+      setPlacements,
+      solvePuzzle,
+      setPuzzle,
+      clearInvalidPlacementMessage,
+      clearGenerationError,
+    }),
+    [
+      generatePuzzle,
+      selectDomino,
+      rotateSelectedDomino,
+      createPlacementFromTray,
+      placeDomino,
+      removePlacement,
+      rotatePlacement,
+      movePlacement,
+      clearSelection,
+      validateSolution,
+      setPlacements,
+      solvePuzzle,
+      setPuzzle,
+      clearInvalidPlacementMessage,
+      clearGenerationError,
+    ]
+  );
+};
+
+// Convenience selectors that combine related values (use sparingly)
+// Using useMemo to prevent object recreation on every render
+export const usePuzzleData = () => {
+  const currentPuzzle = useCurrentPuzzle();
+  const isGenerating = useIsGenerating();
+  const generationError = useGenerationError();
+  return useMemo(
+    () => ({ currentPuzzle, isGenerating, generationError }),
+    [currentPuzzle, isGenerating, generationError]
+  );
+};
+
+export const usePlacementUI = () => {
+  const placementMode = usePlacementMode();
+  const selectedDominoId = useSelectedDominoId();
+  const selectedOrientation = useSelectedOrientation();
+  const firstCell = useFirstCell();
+  return useMemo(
+    () => ({ placementMode, selectedDominoId, selectedOrientation, firstCell }),
+    [placementMode, selectedDominoId, selectedOrientation, firstCell]
+  );
+};
+
+export const useValidationState = () => {
+  const validationResult = useValidationResult();
+  const invalidPlacementMessage = useInvalidPlacementMessage();
+  return useMemo(
+    () => ({ validationResult, invalidPlacementMessage }),
+    [validationResult, invalidPlacementMessage]
+  );
+};

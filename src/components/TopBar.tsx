@@ -76,8 +76,7 @@ const TopBar = ({
           </button>
           <button
             onClick={onSolve}
-            disabled={!puzzle.solution || puzzle.solution.length === 0}
-            className="flex-1 sm:flex-none min-h-[44px] px-4 py-2 bg-amber-500 hover:bg-amber-600 active:bg-amber-700 disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors touch-manipulation focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 disabled:focus:ring-0"
+            className="flex-1 sm:flex-none min-h-[44px] px-4 py-2 bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white rounded-lg font-medium transition-colors touch-manipulation focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2"
             aria-label="Solve puzzle"
           >
             Solve
