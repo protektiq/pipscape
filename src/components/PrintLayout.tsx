@@ -30,12 +30,14 @@ const PrintLayout = ({ puzzle }: PrintLayoutProps) => {
   }, [puzzle.cells]);
 
   // Cell gap for print (smaller than screen)
-  const cellGap = 1;
+  const cellGap = 2;
   
-  // Calculate responsive cell size for print
+  // Calculate responsive cell size for print - sized for real dominoes
+  // Real dominoes are 2.5" × 1.25", so each cell should be 1.25" × 1.25"
+  // At 96 DPI, 1.25 inches = 120px
   const cellSize = useMemo(() => {
-    const baseSize = 50; // Smaller for print
-    const maxWidth = 700; // Max width for print
+    const baseSize = 120; // 1.25 inches at 96 DPI, sized for real dominoes (2.5" × 1.25")
+    const maxWidth = 1800; // Max width for print (allows larger puzzles)
     const calculatedWidth = bounds.width * baseSize + (bounds.width - 1) * cellGap;
     if (calculatedWidth > maxWidth) {
       return Math.floor((maxWidth - (bounds.width - 1) * cellGap) / bounds.width);
@@ -47,86 +49,78 @@ const PrintLayout = ({ puzzle }: PrintLayoutProps) => {
   const containerHeight = bounds.height * cellSize + (bounds.height - 1) * cellGap;
   
   return (
-    <div className="min-h-screen bg-white p-8 print:p-4">
-      <div className="max-w-4xl mx-auto print:max-w-none">
-        {/* Header - compact for print */}
-        <div className="text-center mb-8 print:mb-2 print:text-left">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2 print:text-2xl print:mb-1">PIPSCAPE</h1>
-          <p className="text-lg text-gray-600 capitalize print:text-sm">
-            Difficulty: {puzzle.difficulty}
-          </p>
-          <p className="text-sm text-gray-500 mt-2 print:hidden">
-            Puzzle ID: {puzzle.id.slice(0, 8)}...
-          </p>
-        </div>
+    <div className="print-container">
+      {/* Page 1: Title and Puzzle */}
+      <div className="print-page print-page-1">
+        <div className="print-page-content">
+          <div className="print-header">
+            <h1>PIPSCAPE</h1>
+            <p>Difficulty: {puzzle.difficulty}</p>
+          </div>
+          <div className="print-puzzle-container">
+            <div 
+              className="print-puzzle"
+              style={{ 
+                width: `${containerWidth}px`,
+                height: `${containerHeight}px`,
+              }}
+            >
+              {/* Background cells */}
+              {puzzle.cells.map(cell => {
+                const { row, col } = cell;
+                const relativeRow = row - bounds.minRow;
+                const relativeCol = col - bounds.minCol;
+                const left = relativeCol * (cellSize + cellGap);
+                const top = relativeRow * (cellSize + cellGap);
+                
+                return (
+                  <div
+                    key={`bg-${row}-${col}`}
+                    className="absolute pointer-events-none"
+                    style={{
+                      left: `${left}px`,
+                      top: `${top}px`,
+                      width: `${cellSize}px`,
+                      height: `${cellSize}px`,
+                      backgroundColor: 'white',
+                    }}
+                  />
+                );
+              })}
 
-        {/* Puzzle Grid - fills first page */}
-        <div className="mb-24 print:mb-0 print:page-break-after-always" style={{ minHeight: `${containerHeight}px`, paddingBottom: '3rem' }}>
-          <div 
-            className="relative mx-auto print:w-full print:flex print:justify-center print:items-start"
-            style={{ 
-              width: `${containerWidth}px`,
-              height: `${containerHeight}px`,
-            }}
-          >
-            {/* Background cells - simplified for print, no borders to avoid grid appearance */}
-            {puzzle.cells.map(cell => {
-              const { row, col } = cell;
-              const relativeRow = row - bounds.minRow;
-              const relativeCol = col - bounds.minCol;
-              const left = relativeCol * (cellSize + cellGap);
-              const top = relativeRow * (cellSize + cellGap);
-              
-              return (
-                <div
-                  key={`bg-${row}-${col}`}
-                  className="absolute pointer-events-none"
-                  style={{
-                    left: `${left}px`,
-                    top: `${top}px`,
-                    width: `${cellSize}px`,
-                    height: `${cellSize}px`,
-                    backgroundColor: 'white',
-                  }}
+              {/* Region layers */}
+              {puzzle.regions.map(region => (
+                <RegionComponent
+                  key={region.id}
+                  region={region}
+                  puzzle={puzzle}
+                  allRegions={puzzle.regions}
+                  cellGap={cellGap}
+                  cellSize={cellSize}
                 />
-              );
-            })}
-
-            {/* Region layers */}
-            {puzzle.regions.map(region => (
-              <RegionComponent
-                key={region.id}
-                region={region}
-                puzzle={puzzle}
-                allRegions={puzzle.regions}
-                cellGap={cellGap}
-              />
-            ))}
+              ))}
+            </div>
           </div>
         </div>
+      </div>
 
-        {/* Available Dominoes */}
-        <div className="mt-24 mb-8 print:mt-0 print:mb-4 print:page-break-inside-avoid print:page-break-before-always clear-both flex flex-col items-center" style={{ marginTop: '6rem', paddingTop: '3rem' }}>
-          <h2 className="text-2xl font-bold text-gray-900 mb-4 print:mb-2 text-center">
-            Available Dominoes
-          </h2>
-          <div className="flex flex-wrap justify-center gap-3 print:gap-2 max-w-4xl">
+      {/* Page 2: Available Dominoes */}
+      <div className="print-page print-page-2">
+        <div className="print-page-content">
+          <h2 className="print-dominoes-title">Available Dominoes</h2>
+          <div className="print-dominoes-grid">
             {[...puzzle.availableDominoes]
               .sort((a, b) => {
                 if (a.left !== b.left) return a.left - b.left;
                 return a.right - b.right;
               })
               .map((domino) => (
-                <div
-                  key={domino.id}
-                  className="flex justify-center items-center print:scale-90"
-                >
+                <div key={domino.id} className="print-domino-item">
                   <DominoTile
                     left={domino.left}
                     right={domino.right}
                     variant="tray"
                     orientation="horizontal"
-                    className="print:w-14 print:h-7"
                   />
                 </div>
               ))}
@@ -138,4 +132,3 @@ const PrintLayout = ({ puzzle }: PrintLayoutProps) => {
 };
 
 export default PrintLayout;
-

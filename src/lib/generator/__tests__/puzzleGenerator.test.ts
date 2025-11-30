@@ -2,7 +2,6 @@
 
 import { describe, it, expect } from 'vitest';
 import { generatePuzzle } from '../../../engine/generator';
-import type { Puzzle } from '../../../types/puzzle';
 
 describe('Puzzle Generator', () => {
   it('should generate a valid puzzle for easy difficulty', () => {

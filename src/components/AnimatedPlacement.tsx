@@ -21,27 +21,25 @@ const AnimatedPlacement = ({
   onAnimationComplete,
 }: AnimatedPlacementProps) => {
   const [isAnimating, setIsAnimating] = useState(true);
-  const [targetPosition, setTargetPosition] = useState({ top: 0, left: 0 });
-  
   const { row, col, orientation } = placement;
   
-  // Calculate target position
+  // Calculate target position coordinates
+  const relativeRow = row - bounds.minRow;
+  const relativeCol = col - bounds.minCol;
+  const targetLeft = relativeCol * cellSize;
+  const targetTop = relativeRow * cellSize;
+  
+  // Initialize to off-screen position, then animate to target
+  const [targetPosition, setTargetPosition] = useState({ top: -100, left: -100 });
+  
+  // Animate to target position after a brief delay
   useEffect(() => {
-    const relativeRow = row - bounds.minRow;
-    const relativeCol = col - bounds.minCol;
-    const left = relativeCol * cellSize;
-    const top = relativeRow * cellSize;
-    
-    // Start from off-screen (top-left)
-    setTargetPosition({ top: -100, left: -100 });
-    
-    // Animate to target position after a brief delay
     const timeout = setTimeout(() => {
-      setTargetPosition({ top, left });
+      setTargetPosition({ top: targetTop, left: targetLeft });
     }, animationDelay);
     
     return () => clearTimeout(timeout);
-  }, [row, col, bounds, cellSize, animationDelay]);
+  }, [targetTop, targetLeft, animationDelay]);
   
   // Notify when animation completes
   useEffect(() => {

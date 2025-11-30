@@ -57,15 +57,107 @@
   }
 }
 
+/* Print layout - screen styles */
+.print-container {
+  min-height: 100vh;
+  background: white;
+  padding: 2rem;
+}
+
+.print-page {
+  max-width: 8.5in;
+  margin: 0 auto;
+  background: white;
+  padding: 2rem;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  margin-bottom: 2rem;
+}
+
+.print-page-content {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  min-height: 100%;
+}
+
+.print-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.print-header h1 {
+  font-size: 2.5rem;
+  font-weight: bold;
+  color: #1f2937;
+  margin: 0 0 0.5rem 0;
+}
+
+.print-header p {
+  font-size: 1.125rem;
+  color: #4b5563;
+  margin: 0;
+  text-transform: capitalize;
+}
+
+.print-puzzle-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  margin: 2rem 0;
+  flex: 1 1 auto;
+}
+
+.print-puzzle {
+  position: relative;
+  display: block;
+}
+
+.print-dominoes-title {
+  font-size: 1.875rem;
+  font-weight: bold;
+  color: #1f2937;
+  margin: 0 0 1.5rem 0;
+  text-align: center;
+}
+
+.print-dominoes-grid {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+  max-width: 100%;
+}
+
+.print-domino-item {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
 /* Print styles */
 @media print {
   @page {
-    margin: 1cm;
+    margin: 1.5cm;
     size: letter;
   }
 
   body {
     background: white !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* Reset root containers */
+  body > div,
+  #root {
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
   }
 
   /* Hide non-essential elements when printing */
@@ -75,17 +167,26 @@
 
   /* Page break controls */
   .print\:page-break-after-always {
-    page-break-after: always;
+    page-break-after: always !important;
+    break-after: page !important;
   }
 
   .print\:page-break-before-always {
-    page-break-before: always;
+    page-break-before: always !important;
+    break-before: page !important;
+  }
+
+  .print\:page-break-inside-avoid {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
   }
 
   /* Optimize colors for printing */
   * {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
+    box-shadow: none !important;
+    text-shadow: none !important;
   }
 
   /* Ensure text is readable */
@@ -93,23 +194,143 @@
     color: #000 !important;
   }
 
-  /* Optimize borders for print */
-  .print\:border-gray-600 {
-    border-color: #4b5563 !important;
-  }
-
-  .print\:border-gray-400 {
-    border-color: #9ca3af !important;
-  }
-
-  /* Remove glow effects and shadows for print */
-  * {
-    box-shadow: none !important;
-    text-shadow: none !important;
-  }
-
   /* Simplify region borders for print */
   .border-dashed {
     border-style: solid !important;
+  }
+
+  /* Print container - simple wrapper */
+  .print-container {
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Print page - each page is a separate container */
+  .print-page {
+    width: 100% !important;
+    height: 24.94cm !important;
+    min-height: 24.94cm !important;
+    page-break-after: always !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+    align-items: center !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .print-page:last-child {
+    page-break-after: auto !important;
+  }
+
+  /* Page content - flex container for centering */
+  .print-page-content {
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+    align-items: center !important;
+    width: 100% !important;
+    height: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    position: relative !important;
+  }
+
+  /* Page 1 - Title and Puzzle */
+  .print-page-1 {
+    page-break-after: always !important;
+    position: relative !important;
+  }
+
+  /* Debug: Purple center line */
+  .print-center-line {
+    position: absolute !important;
+    left: 50% !important;
+    top: 0 !important;
+    width: 2px !important;
+    height: 100% !important;
+    background-color: purple !important;
+    z-index: 1000 !important;
+    transform: translateX(-50%) !important;
+  }
+
+  .print-header {
+    text-align: center !important;
+    margin-bottom: 1.5rem !important;
+    width: 100% !important;
+    flex-shrink: 0 !important;
+    position: relative !important;
+  }
+
+  .print-header h1 {
+    font-size: 2rem !important;
+    font-weight: bold !important;
+    color: #000 !important;
+    margin: 0 0 0.5rem 0 !important;
+    padding: 0 !important;
+  }
+
+  .print-header p {
+    font-size: 1rem !important;
+    color: #000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    text-transform: capitalize !important;
+  }
+
+  /* Puzzle container - centers the puzzle's center with page center */
+  .print-puzzle-container {
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    flex: 1 1 auto !important;
+    position: relative !important;
+    overflow: visible !important;
+  }
+
+  .print-puzzle {
+    position: relative !important;
+    display: block !important;
+    flex-shrink: 0 !important;
+    /* Centered by parent flex container (.print-puzzle-container) */
+  }
+
+  /* Page 2 - Available Dominoes */
+  .print-page-2 {
+    page-break-before: always !important;
+    page-break-after: auto !important;
+  }
+
+  .print-dominoes-title {
+    font-size: 1.5rem !important;
+    font-weight: bold !important;
+    color: #000 !important;
+    margin: 0 0 1rem 0 !important;
+    padding: 0 !important;
+    text-align: center !important;
+  }
+
+  .print-dominoes-grid {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    justify-content: center !important;
+    align-items: center !important;
+    gap: 0.75rem !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+  }
+
+  .print-domino-item {
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    flex-shrink: 0 !important;
   }
 }

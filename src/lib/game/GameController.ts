@@ -12,10 +12,12 @@ import {
 } from '../../engine/placementEngine';
 import { getPlacementForCell } from '../../engine/placementUtils';
 import { solutionCache } from '../../engine/solutionCache';
+import { solvePuzzle as solvePuzzleEngine } from '../../engine/solver';
 
 export class GameController {
   /**
-   * Solve the puzzle by setting placements to the solution
+   * Solve the puzzle by setting placements to the solution.
+   * Uses cached solution if available, otherwise uses backtracking solver.
    */
   solve(puzzle: Puzzle): Puzzle {
     // Try to get solution from puzzle first, then from cache
@@ -28,9 +30,25 @@ export class GameController {
       }
     }
 
+    // If no cached solution, try using the backtracking solver
     if (!solution) {
-      console.warn('No solution available for puzzle:', puzzle.id);
-      return puzzle; // Return unchanged if no solution
+      console.log('No cached solution found, attempting to solve using backtracking solver...');
+      const solvedPuzzle = solvePuzzleEngine(puzzle);
+      
+      if (solvedPuzzle && solvedPuzzle.placements.length > 0) {
+        // Cache the solution for future use
+        solution = solvedPuzzle.placements;
+        solutionCache.set(puzzle.seed, solution);
+        
+        return {
+          ...puzzle,
+          placements: [...solution],
+          solution, // Ensure solution is stored
+        };
+      } else {
+        console.warn('Solver could not find a solution for puzzle:', puzzle.id);
+        return puzzle; // Return unchanged if no solution found
+      }
     }
 
     return {

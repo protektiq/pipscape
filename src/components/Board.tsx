@@ -47,8 +47,8 @@ const Board = ({
     };
   }, [puzzle.cells]);
   
-  // Memoize cell lookup map - only recalculate when puzzle.cells changes
-  const cellMap = useMemo(() => buildCellLookup(puzzle), [puzzle.cells]);
+  // Memoize cell lookup map - only recalculate when puzzle changes
+  const cellMap = useMemo(() => buildCellLookup(puzzle), [puzzle]);
   
   // Memoize placement lookup map for O(1) access - only recalculate when placements change
   const placementLookup = useMemo(() => buildPlacementLookup(puzzle.placements), [puzzle.placements]);

@@ -17,7 +17,7 @@ const DominoTray = () => {
       placed.add(placement.dominoId);
     }
     return placed;
-  }, [currentPuzzle?.placements]);
+  }, [currentPuzzle]);
 
   // Check if domino is placed - memoized
   const isPlaced = useCallback((dominoId: string): boolean => {
@@ -67,7 +67,7 @@ const DominoTray = () => {
     });
 
     return { groupedBySum: grouped, sortedSums: sorted };
-  }, [currentPuzzle?.availableDominoes]);
+  }, [currentPuzzle]);
 
   if (!currentPuzzle) {
     return null;

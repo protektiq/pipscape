@@ -95,8 +95,15 @@ export function getRandomTemplate(
     throw new Error(`No templates available for difficulty: ${difficulty}`);
   }
 
-  const index = random.randomInt(0, templates.length - 1);
-  const selectedTemplate = templates[index];
+  // Filter out templates with odd number of cells (cannot tile with dominoes)
+  const validTemplates = templates.filter(t => t.cells.length % 2 === 0);
+  
+  if (validTemplates.length === 0) {
+    throw new Error(`No valid templates (even cell count) available for difficulty: ${difficulty}`);
+  }
+
+  const index = random.randomInt(0, validTemplates.length - 1);
+  const selectedTemplate = validTemplates[index];
   console.log(`[getRandomTemplate] Selected template index ${index}: ${selectedTemplate.id}, difficulty: ${selectedTemplate.difficulty}`);
   return selectedTemplate;
 }

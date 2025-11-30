@@ -2,7 +2,6 @@
 
 import { describe, it, expect } from 'vitest';
 import { getTemplatesForDifficulty, getRandomTemplate, getTemplateById } from '../../../templates/loader';
-import type { ShapeTemplate } from '../../../templates/types';
 
 describe('Template Loader', () => {
   it('should load templates for easy difficulty', () => {

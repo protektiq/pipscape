@@ -12,9 +12,10 @@ interface RegionProps {
   puzzle: Puzzle;
   allRegions: Region[];
   cellGap?: number;
+  cellSize?: number; // Optional cellSize prop for print layouts
 }
 
-const RegionComponent = ({ region, puzzle, allRegions, cellGap = 0 }: RegionProps) => {
+const RegionComponent = ({ region, puzzle, allRegions, cellGap = 0, cellSize: propCellSize }: RegionProps) => {
   // Calculate bounding box from all puzzle cells
   const bounds = React.useMemo(() => {
     if (puzzle.cells.length === 0) {
@@ -30,8 +31,12 @@ const RegionComponent = ({ region, puzzle, allRegions, cellGap = 0 }: RegionProp
     };
   }, [puzzle.cells]);
   
-  // Calculate responsive cell size (match Board component)
+  // Calculate responsive cell size (use prop if provided, otherwise calculate)
   const cellSize = React.useMemo(() => {
+    if (propCellSize !== undefined) {
+      return propCellSize;
+    }
+    // Default calculation for screen display
     const baseSize = 90;
     const maxWidth = 1400;
     const width = bounds.maxCol - bounds.minCol + 1;
@@ -40,7 +45,7 @@ const RegionComponent = ({ region, puzzle, allRegions, cellGap = 0 }: RegionProp
       return Math.floor(maxWidth / width);
     }
     return baseSize;
-  }, [bounds]);
+  }, [bounds, propCellSize]);
   // Get color from template if available, otherwise use fallback
   const templateColor = React.useMemo(() => {
     if (puzzle.shapeTemplate) {
@@ -82,7 +87,7 @@ const RegionComponent = ({ region, puzzle, allRegions, cellGap = 0 }: RegionProp
       };
     }
     return null;
-  }, [puzzle.shapeTemplate, region.id, bottomLeftCell, bounds, cellSize]);
+  }, [puzzle.shapeTemplate, region.id, bottomLeftCell, bounds, cellSize, cellGap]);
 
   return (
     <>

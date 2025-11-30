@@ -18,35 +18,40 @@ const Print = () => {
       return;
     }
 
-    try {
-      const seed = searchParams.get('seed');
-      const difficultyParam = searchParams.get('difficulty');
-      const difficulty = (difficultyParam === 'easy' || difficultyParam === 'medium' || difficultyParam === 'hard')
-        ? difficultyParam
-        : 'medium';
-      
-      if (seed) {
-        // Regenerate puzzle from seed
-        const newPuzzle = generatePuzzle(difficulty, seed);
-        if (newPuzzle) {
-          setPuzzle(newPuzzle);
-          setError(null);
+    // Use a small timeout to defer state updates and avoid cascading renders
+    const timeoutId = setTimeout(() => {
+      try {
+        const seed = searchParams.get('seed');
+        const difficultyParam = searchParams.get('difficulty');
+        const difficulty = (difficultyParam === 'easy' || difficultyParam === 'medium' || difficultyParam === 'hard')
+          ? difficultyParam
+          : 'medium';
+        
+        if (seed) {
+          // Regenerate puzzle from seed
+          const newPuzzle = generatePuzzle(difficulty, seed);
+          if (newPuzzle) {
+            setPuzzle(newPuzzle);
+            setError(null);
+          } else {
+            setError('Failed to generate puzzle from seed');
+          }
         } else {
-          setError('Failed to generate puzzle from seed');
+          // Fallback: generate new puzzle
+          const newPuzzle = generatePuzzle(difficulty);
+          if (newPuzzle) {
+            setPuzzle(newPuzzle);
+            setError(null);
+          } else {
+            setError('Failed to generate puzzle');
+          }
         }
-      } else {
-        // Fallback: generate new puzzle
-        const newPuzzle = generatePuzzle(difficulty);
-        if (newPuzzle) {
-          setPuzzle(newPuzzle);
-          setError(null);
-        } else {
-          setError('Failed to generate puzzle');
-        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'An error occurred while loading the puzzle');
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred while loading the puzzle');
-    }
+    }, 0);
+    
+    return () => clearTimeout(timeoutId);
   }, [id, searchParams, navigate]);
 
   const handlePrint = () => {

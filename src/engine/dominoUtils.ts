@@ -51,3 +51,29 @@ export const getDominoForPlacement = (placementDominoId: string, dominoes: Domin
   return findDominoById(placementDominoId, dominoes);
 };
 
+/**
+ * Check if the given domino is a "double", such as 6-6.
+ * A double has the same pip count on both sides.
+ * 
+ * Aligned with brianberns/Pips:
+ * let isDouble domino =
+ *   domino.Left = domino.Right
+ * 
+ * @param domino - The domino to check
+ * @returns true if the domino is a double
+ */
+export const isDouble = (domino: Domino): boolean => {
+  return domino.left === domino.right;
+};
+
+/**
+ * Get pip count for a specific side of a domino.
+ * 
+ * @param domino - The domino
+ * @param side - 'left' or 'right'
+ * @returns The pip count for that side (0-6)
+ */
+export const getPipCount = (domino: Domino, side: 'left' | 'right'): number => {
+  return side === 'left' ? domino.left : domino.right;
+};
+

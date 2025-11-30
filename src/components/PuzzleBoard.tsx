@@ -13,11 +13,7 @@ const PuzzleBoard = () => {
   const placementLookup = useMemo(() => {
     if (!currentPuzzle) return new Map();
     return buildPlacementLookup(currentPuzzle.placements);
-  }, [currentPuzzle?.placements]);
-
-  if (!currentPuzzle) {
-    return null;
-  }
+  }, [currentPuzzle]);
 
   const handleCellClick = useCallback((row: number, col: number) => {
     if (!currentPuzzle) return;
@@ -32,6 +28,10 @@ const PuzzleBoard = () => {
       placeDomino({ row, col });
     }
   }, [currentPuzzle, placementLookup, placementMode, rotatePlacement, placeDomino]);
+
+  if (!currentPuzzle) {
+    return null;
+  }
 
   return (
     <Board

@@ -126,8 +126,6 @@ export const usePuzzleInitialization = ({
         urlDifficulty: difficulty,
       });
     }
-    // Only depend on URL params, not currentPuzzle to prevent infinite loops
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [difficulty, id, navigate]);
 };
 

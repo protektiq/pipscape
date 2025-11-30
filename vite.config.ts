@@ -3,7 +3,6 @@ import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 
 // https://vite.dev/config/
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 // Type assertion needed due to version mismatch between vite and vitest's bundled vite
 export default defineConfig({
   // @ts-expect-error - Version mismatch between vite and vitest's bundled vite types

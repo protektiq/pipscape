@@ -2,7 +2,7 @@
 import './testHelpers';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { validatePlacement, validatePuzzle } from '../validator';
-import { getCachedPuzzle, createMinimalTestPuzzle } from './testHelpers';
+import { createMinimalTestPuzzle } from './testHelpers';
 import type { Puzzle, Placement } from '../../types/puzzle';
 
 describe('validatePlacement', () => {

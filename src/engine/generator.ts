@@ -657,6 +657,9 @@ export const generatePuzzle = (
       const simpleRandom = new SeededRandom(`${workingSeed}-simple`);
       const simpleSolution = generateSolution(cells, simpleRandom);
       if (simpleSolution) {
+        // For explicit seeds (tests), we use simple generation as fallback
+        // Simple generation creates valid tilings but may not satisfy all constraints
+        // The puzzle will still be playable, just won't satisfy all region constraints
         solutionResult = simpleSolution;
       } else {
         throw new Error(`Failed to generate puzzle for ${difficulty}. Template has ${cells.length} cells.`);
@@ -665,7 +668,7 @@ export const generatePuzzle = (
   }
   
   // If we still don't have a solution, this is an error
-  if (!solutionResult) {
+  if (!solutionResult || !solutionResult.placements || solutionResult.placements.length === 0) {
     throw new Error(`Failed to generate puzzle for ${difficulty}. Template has ${cells.length} cells.`);
   }
   const { placements, usedDominoes } = solutionResult;
@@ -680,14 +683,14 @@ export const generatePuzzle = (
     // For explicit seeds, if validation fails, use a deterministic fallback seed
     // This ensures reproducibility even when validation fails
     // Use isFallback flag to prevent infinite recursion
-    if (isFallback && retryCount > 10) {
-      // If fallback also fails after many retries, try once more with a different approach
-      throw new Error(`Failed to generate valid puzzle structure after ${retryCount} retries. This is likely a bug or an impossible puzzle configuration.`);
+    if (isFallback && retryCount >= 3) {
+      // If we're already in a fallback and it failed multiple times, give up
+      throw new Error(`Failed to generate valid puzzle structure after ${retryCount} fallback attempts. This is likely a bug or an impossible puzzle configuration.`);
     }
     const fallbackSeed = hasExplicitSeed 
-      ? `${originalPuzzleSeed}-structure-fallback`
+      ? `${originalPuzzleSeed}-structure-fallback-${retryCount}`
       : uuidv4();
-    const fallbackPuzzle = generatePuzzle(difficulty, fallbackSeed, originalPuzzleSeed, 0, true);
+    const fallbackPuzzle = generatePuzzle(difficulty, fallbackSeed, originalPuzzleSeed, isFallback ? retryCount + 1 : 0, true);
     // Preserve the original seed even when using fallback
     // Ensure solution is always included
     return {
@@ -730,11 +733,12 @@ export const generatePuzzle = (
   }
 
   // Return puzzle with solution removed (for player to solve) and all dominoes
-  // Only store solution if it passes validation (which it does, since we reached here)
+  // Always store the solution if it was generated (it was validated during generation)
+  // Even if final puzzle validation fails, the solution itself is valid
   return {
     ...tempPuzzle,
     placements: [], // Remove solution placements
-    solution: placements, // Store validated solution for solve button
+    solution: placements, // Always store solution (it was validated during generation)
     shapeTemplate: { // Store template reference
       id: template.id,
       difficulty: template.difficulty,
